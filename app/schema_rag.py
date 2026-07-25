@@ -7,6 +7,7 @@ G-06: Terim sözlüğü belgeleri de indekse eklenir.
 Chroma + çok dilli embedding varsayılan; kurulamazsa anahtar-kelime eşleşmesine
 (preprocess.keywords + light_stem) otomatik düşer — demo her koşulda çalışır.
 """
+import hashlib
 import json
 from typing import Optional
 
@@ -53,7 +54,8 @@ class ContextIndex:
     """Soru → ilgili tablo belgeleri + terim belgeleri."""
 
     def __init__(self, db_url: Optional[str] = None):
-        self.schema, self.known_columns = discover_schema(db_url)
+        self.db_url = db_url or config.DB_URL
+        self.schema, self.known_columns = discover_schema(self.db_url)
         self.glossary = load_glossary()
         self.terms = glossary_docs(self.glossary)
         self.known_tables = {d["table"].lower() for d in self.schema}
@@ -68,7 +70,9 @@ class ContextIndex:
         from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
         client = chromadb.PersistentClient(path=config.CHROMA_DIR)
         ef = SentenceTransformerEmbeddingFunction(model_name=config.EMBED_MODEL)
-        col = client.get_or_create_collection("sorbi_ctx", embedding_function=ef)
+        # Koleksiyon adı bağlantıya bağlı — farklı DB'lerin şemaları karışmaz
+        ad = "sorbi_ctx_" + hashlib.md5(self.db_url.encode()).hexdigest()[:10]
+        col = client.get_or_create_collection(ad, embedding_function=ef)
         all_docs = self.schema + self.terms
         existing = set(col.get()["ids"])
         new = [d for d in all_docs if d["id"] not in existing]

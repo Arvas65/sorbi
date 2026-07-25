@@ -29,6 +29,17 @@ MVP uygulama sırasının (sistem analizi EK bölümü) 1–9. adımları tamaml
   - **Yönetici Önerisi**: KPI özeti yerel LLM'e gider (yalnız toplam sayılar, hasta verisi gitmez — G-16
     ile uyumlu); LLM yoksa kural tabanlı eşik önerileri (iptal >%10, geciken tahsilat >%15 vb.)
 
+**v2.2 (bu sürümde eklendi) — Dinamik veritabanı bağlantısı**
+
+- `app/connections.py` + `ui/pages/2_Baglanti.py`: kullanıcı grubu DB'yi arayüzden seçer
+  (SQLite / PostgreSQL / MySQL / MSSQL), bağlantı testi, profil kaydetme
+- Şifre diske yazılmaz (yalnız oturum belleği); profiller `.sorbi/` altında, gitignore'lu
+- Bağlantı değişince RAG indeksi otomatik yeniden kurulur; Chroma koleksiyonu
+  bağlantıya bağlı adlandırılır (şemalar karışmaz)
+- Lehçe otomatik ayarlanır (G-10/ADR-4): postgres/tsql/mysql'e transpile hazır
+- İkinci demo şema: `demo/seed_satis.py` (satış) — geçiş testlerinin zemini
+- G-14 hatırlatması arayüzde: sunucu DB'lerinde salt-okunur hesap önkoşul
+
 **v2 adayları (önceliklendirme bekliyor)**
 
 1. Dashboard'u SOR ile köprüle: "bu grafiği filtrele" tarzı doğal dil filtre komutları

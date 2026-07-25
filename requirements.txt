@@ -6,3 +6,8 @@ sentence-transformers>=3.0
 requests>=2.31
 pandas>=2.0
 pytest>=8.0
+
+# Opsiyonel DB sürücüleri (Bağlantı Yöneticisi'nde seçtiğiniz tipe göre kurun):
+# psycopg2-binary>=2.9    # PostgreSQL
+# pymysql>=1.1            # MySQL / MariaDB
+# pyodbc>=5.0             # SQL Server (ayrıca ODBC Driver 17 gerekir)

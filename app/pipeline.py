@@ -34,6 +34,12 @@ def get_index() -> ContextIndex:
     return _index
 
 
+def reset_index() -> None:
+    """Aktif bağlantı değişince RAG indeksini yeni şemayla yeniden kurar."""
+    global _index
+    _index = None
+
+
 def ask(question: str, user: str = "demo", mode: str = None,
         manual_sql: str = None) -> Answer:
     """manual_sql: kontrollü bypass (Böl. 12) — analist elle SQL girer;

@@ -19,3 +19,7 @@ training/output/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Dinamik bağlantılar / profiller
+.sorbi/
+demo/satis.db

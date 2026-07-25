@@ -35,6 +35,14 @@ python demo/seed_data.py          # demo/hospital.db
 streamlit run ui/streamlit_app.py
 ```
 
+## Kendi veritabanını bağlama (v2)
+
+Arayüzdeki **Bağlantı** sayfasından SQLite / PostgreSQL / MySQL / SQL Server seçip
+bağlanabilirsiniz; şema otomatik keşfedilir, SOR sayfası yeni şemayı kullanır.
+Şifreler diske yazılmaz. Sunucu DB'lerinde **salt-okunur hesap** kullanmak önkoşuldur (G-14).
+Sürücüler: `requirements.txt` sonundaki opsiyonel satırlara bakın.
+Farklı şemayla denemek için ikinci demo: `python demo/seed_satis.py`
+
 ## Değerlendirme (G-11: execution accuracy)
 
 ```bash
