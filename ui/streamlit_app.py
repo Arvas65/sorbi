@@ -46,9 +46,14 @@ with tab_soru:
                                   help="Yalnızca SELECT; aynı doğrulama ve denetimden geçer.")
 
     if st.button("Sor", type="primary") and (soru or manual_sql):
+        ans = None
         with st.spinner("Sorgu üretiliyor..."):
-            ans = pipeline.ask(soru or "(elle SQL)", user=kullanici, mode=mode,
-                               manual_sql=manual_sql.strip() or None)
+            try:
+                ans = pipeline.ask(soru or "(elle SQL)", user=kullanici, mode=mode,
+                                   manual_sql=manual_sql.strip() or None)
+            except Exception as e:
+                st.error(f"⚠️ {e}")
+                st.stop()
 
         # Durum şeridi (Nielsen 1: durum görünür — renk + ikon + metin)
         etiket = {"local": "🖥️ yerel model", "api": "☁️ API (maskeli)", "manual": "⌨️ elle SQL"}

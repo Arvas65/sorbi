@@ -10,6 +10,41 @@ import requests
 
 from app import config
 
+
+class LlmError(RuntimeError):
+    """Model servisine ulaşılamadı / model hata verdi — kullanıcıya anlaşılır mesaj."""
+
+
+def _ollama_chat(messages: list) -> str:
+    """Ollama'ya istek atar; ağ/HTTP hatalarını anlaşılır LlmError'a çevirir."""
+    try:
+        r = requests.post(f"{config.OLLAMA_URL}/api/chat", json={
+            "model": config.LOCAL_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": 0.1, "num_predict": 400},
+        }, timeout=120)
+    except requests.exceptions.ConnectionError:
+        raise LlmError(
+            f"Ollama'ya ulaşılamadı ({config.OLLAMA_URL}). Ollama çalışıyor mu? "
+            "Kurulu değilse https://ollama.com adresinden kurun; kuruluysa uygulamayı başlatın.")
+    except requests.exceptions.Timeout:
+        raise LlmError(
+            "Yerel model 120 saniyede yanıt vermedi. Makine yoğun olabilir; "
+            "biraz bekleyip yeniden deneyin veya daha küçük bir model seçin.")
+    if not r.ok:
+        detay = ""
+        try:
+            detay = r.json().get("error", "")[:200]
+        except Exception:
+            detay = r.text[:200]
+        raise LlmError(
+            f"Yerel model hata verdi (HTTP {r.status_code}). {detay}\n"
+            f"Terminalde şunu deneyin: ollama run {config.LOCAL_MODEL} \"merhaba\" — "
+            "o da hata veriyorsa Ollama'yı ve GPU sürücünüzü güncelleyin ya da CPU'ya zorlayın "
+            "(OLLAMA_LLM_LIBRARY=cpu_avx2).")
+    return r.json()["message"]["content"]
+
 SYSTEM_PROMPT = """Sen Türkçe soruları SQL'e çeviren bir asistansın. Kurallar:
 1. YALNIZCA SQLite lehçesinde tek bir SELECT sorgusu üret. Başka hiçbir şey yazma.
 2. Yalnızca sana verilen şemadaki tablo ve kolonları kullan. Tablo/kolon UYDURMA.
@@ -47,15 +82,9 @@ def _user_prompt(question: str, context: str) -> str:
 
 
 def generate_local(question: str, context: str) -> dict:
-    r = requests.post(f"{config.OLLAMA_URL}/api/chat", json={
-        "model": config.LOCAL_MODEL,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT},
-                     {"role": "user", "content": _user_prompt(question, context)}],
-        "stream": False,
-        "options": {"temperature": 0.1, "num_predict": 400},
-    }, timeout=120)
-    r.raise_for_status()
-    return _parse(r.json()["message"]["content"])
+    content = _ollama_chat([{"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": _user_prompt(question, context)}])
+    return _parse(content)
 
 
 def generate_api(question: str, context: str) -> dict:
@@ -106,12 +135,6 @@ def repair(question: str, context: str, bad_sql: str, error: str,
             return _parse(r.json()["choices"][0]["message"]["content"]), "api"
         except Exception:
             pass
-    r = requests.post(f"{config.OLLAMA_URL}/api/chat", json={
-        "model": config.LOCAL_MODEL,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT},
-                     {"role": "user", "content": fix_prompt}],
-        "stream": False,
-        "options": {"temperature": 0.1, "num_predict": 400},
-    }, timeout=120)
-    r.raise_for_status()
-    return _parse(r.json()["message"]["content"]), "local"
+    content = _ollama_chat([{"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": fix_prompt}])
+    return _parse(content), "local"
