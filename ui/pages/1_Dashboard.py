@@ -126,9 +126,19 @@ if not piv.empty:
                 .fillna(0).astype(int))
     tablo["Toplam"] = tablo.sum(axis=1)
     tablo = tablo.sort_values("Toplam", ascending=False)
-    st.dataframe(tablo.style.background_gradient(cmap="Blues", axis=None,
-                                                 subset=[c for c in tablo.columns if c != "Toplam"]),
-                 width="stretch")
+
+    # Isı haritası rengi (matplotlib'siz): beyaz -> koyu mavi
+    deger_kolonlari = [c for c in tablo.columns if c != "Toplam"]
+    vmax = float(tablo[deger_kolonlari].values.max()) or 1.0
+
+    def _mavi(v):
+        oran = min(float(v) / vmax, 1.0)
+        r, g, b = int(255 - 190 * oran), int(255 - 130 * oran), int(255 - 40 * oran)
+        metin = "white" if oran > 0.55 else "black"
+        return f"background-color: rgb({r},{g},{b}); color: {metin}"
+
+    boyayici = getattr(tablo.style, "map", None) or tablo.style.applymap
+    st.dataframe(boyayici(_mavi, subset=deger_kolonlari), width="stretch")
 with st.expander("SQL göster"):
     st.code(piv_sql, language="sql")
 
