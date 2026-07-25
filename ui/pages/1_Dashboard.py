@@ -14,8 +14,10 @@ import streamlit as st
 from sqlalchemy import bindparam, create_engine, text
 
 from app import config
+from ui.ortak import giris_kapisi
 
 st.set_page_config(page_title="SorBI — Dashboard", page_icon="📊", layout="wide")
+giris_kapisi()
 st.title("📊 Hizmet Analizi Dashboard")
 st.caption("Demo hastane verisi — tüm göstergeler filtrelere göre canlı hesaplanır")
 

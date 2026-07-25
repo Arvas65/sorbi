@@ -18,7 +18,7 @@ QUERY_TIMEOUT_S = int(os.getenv("SORBI_TIMEOUT", "30"))
 MAX_ROWS = int(os.getenv("SORBI_MAX_ROWS", "1000"))
 
 # --- RAG (ADR-3) ---
-CHROMA_DIR = os.path.join(HERE, ".chroma")
+CHROMA_DIR = os.getenv("SORBI_CHROMA_DIR", os.path.join(HERE, ".chroma"))
 EMBED_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 TOP_K_TABLES = 6
 
@@ -27,4 +27,4 @@ CONFIDENCE_THRESHOLD = 0.6
 
 # --- Dosyalar ---
 GLOSSARY_PATH = os.path.join(HERE, "demo", "glossary.json")
-AUDIT_DB = os.path.join(HERE, ".audit.db")
+AUDIT_DB = os.getenv("SORBI_AUDIT_DB", os.path.join(HERE, ".audit.db"))

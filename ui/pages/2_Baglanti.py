@@ -10,8 +10,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import streamlit as st
 
 from app import config, connections
+from ui.ortak import giris_kapisi
 
 st.set_page_config(page_title="SorBI — Bağlantı", page_icon="🔌", layout="wide")
+giris_kapisi()
 st.title("🔌 Veritabanı Bağlantısı")
 
 # Aktif bağlantı durumu

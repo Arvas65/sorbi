@@ -40,6 +40,16 @@ MVP uygulama sırasının (sistem analizi EK bölümü) 1–9. adımları tamaml
 - İkinci demo şema: `demo/seed_satis.py` (satış) — geçiş testlerinin zemini
 - G-14 hatırlatması arayüzde: sunucu DB'lerinde salt-okunur hesap önkoşul
 
+**v2.3 (bu sürümde eklendi) — Pilot/SaaS önkoşulları: kimlik + paketleme**
+
+- `app/auth.py` + `ui/ortak.py`: giriş kapısı, ilk kurulum sihirbazı (yönetici hesabı),
+  PBKDF2-SHA256 şifre saklama, yonetici/analist rolleri, kullanıcı yönetimi sayfası
+- Denetim izi artık oturum açan gerçek kimliğe bağlı (G-17 güçlendi)
+- `Dockerfile` + `docker-compose.yml`: tek komutla uygulama + Ollama; kalıcı veriler
+  (kullanıcı, profil, denetim izi, RAG önbelleği) named volume'da
+- Strateji notu: KVKK/yerel-LLM tezi gereği öncelik **on-prem lisanslı ürün**;
+  saf bulut SaaS yalnız hassas olmayan verilerle anlamlı (bkz. karar: hibrit mimari)
+
 **v2 adayları (önceliklendirme bekliyor)**
 
 1. Dashboard'u SOR ile köprüle: "bu grafiği filtrele" tarzı doğal dil filtre komutları

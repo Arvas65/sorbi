@@ -10,8 +10,10 @@ import pandas as pd
 import streamlit as st
 
 from app import audit, config, pipeline
+from ui.ortak import giris_kapisi
 
 st.set_page_config(page_title="SorBI", page_icon="🩺", layout="wide")
+kullanici = giris_kapisi()
 
 st.title("SorBI")
 st.caption("Türkçe sor, SQL'i ve cevabı gör — demo: özel hastane veritabanı")
@@ -25,7 +27,6 @@ with st.sidebar:
         st.warning("SORBI_API_KEY tanımlı değil; yerel moda düşülecek.")
     st.caption(f"Model: {config.LOCAL_MODEL if mode == 'local' else config.API_MODEL}")
     st.caption(f"Hedef lehçe: {config.TARGET_DIALECT}")
-    kullanici = st.text_input("Kullanıcı adı (denetim izi için)", value="demo")
 
 tab_soru, tab_gecmis, tab_sema = st.tabs(["Soru", "Denetim izi", "Şema"])
 

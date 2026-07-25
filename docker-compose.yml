@@ -1,0 +1,39 @@
+# SorBI pilot kurulumu: tek komut -> uygulama + yerel LLM
+#   docker compose up -d
+#   docker compose exec ollama ollama pull llama3.2:3b   # ilk kurulumda bir kez
+# Arayüz: http://localhost:8501  (ilk açılışta yönetici hesabı oluşturulur)
+services:
+  sorbi:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      SORBI_OLLAMA_URL: http://ollama:11434
+      SORBI_AUDIT_DB: /app/.sorbi/audit.db
+      SORBI_CHROMA_DIR: /app/.sorbi/chroma
+      # Kendi veritabanınız için (salt-okunur hesap! — G-14):
+      # SORBI_DB_URL: postgresql+psycopg2://readonly:sifre@dbhost:5432/veritabani
+      # SORBI_DIALECT: postgres
+    volumes:
+      - sorbi-veri:/app/.sorbi   # kullanıcılar, profiller, denetim izi, RAG önbelleği
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-modeller:/root/.ollama
+    # GPU için (NVIDIA Container Toolkit kuruluysa) yorum satırlarını açın:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  sorbi-veri:
+  ollama-modeller:

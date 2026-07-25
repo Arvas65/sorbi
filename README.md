@@ -35,6 +35,18 @@ python demo/seed_data.py          # demo/hospital.db
 streamlit run ui/streamlit_app.py
 ```
 
+## Docker ile kurulum (pilot / on-prem)
+
+```bash
+docker compose up -d
+docker compose exec ollama ollama pull llama3.2:3b   # ilk kurulumda bir kez
+# Arayüz: http://localhost:8501
+```
+
+İlk açılışta **yönetici hesabı** oluşturmanız istenir. Roller: yönetici
+(her şey + kullanıcı yönetimi) ve analist. Şifreler PBKDF2 ile hash'lenir,
+düz metin saklanmaz. Denetim izi (G-17) oturum açan gerçek kimliğe bağlanır.
+
 ## Kendi veritabanını bağlama (v2)
 
 Arayüzdeki **Bağlantı** sayfasından SQLite / PostgreSQL / MySQL / SQL Server seçip
