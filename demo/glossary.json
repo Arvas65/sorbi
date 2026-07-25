@@ -1,0 +1,21 @@
+{
+  "_comment": "G-06 terim sözlüğü: iş terimi -> şema karşılığı. G-16 maskeleme: masked_columns API moduna giden istemlerde değer olarak asla yer alamaz.",
+  "terms": {
+    "ciro": "SUM(fatura.tutar) — fatura tablosundaki tutar toplamı",
+    "gelir": "SUM(fatura.tutar)",
+    "poliklinik": "bolum tablosu (bolum.ad)",
+    "hekim": "doktor tablosu",
+    "vizite": "randevu (durum='TAMAMLANDI')",
+    "no-show": "randevu.durum='GELMEDI'",
+    "gelmeyen hasta": "randevu.durum='GELMEDI'",
+    "yatan hasta": "yatis tablosunda cikis_tarihi IS NULL olan hasta",
+    "taburcu": "yatis.cikis_tarihi dolu olan kayıt",
+    "tahsilat": "fatura.odeme_durumu='ODENDI' olan tutarlar",
+    "alacak": "fatura.odeme_durumu IN ('BEKLIYOR','GECIKTI') olan tutarlar",
+    "doluluk": "aktif yatis sayısı / toplam oda kapasitesi",
+    "muayene sayısı": "COUNT(muayene) — tamamlanmış randevuya bağlı"
+  },
+  "masked_columns": [
+    "hasta.ad", "hasta.soyad", "hasta.tckn", "hasta.dogum_tarihi"
+  ]
+}

@@ -1,0 +1,8 @@
+# Streamlit'in modül tarayıcısı, transformers'ın vision modüllerinde
+# torchvision yokluğundan dolayı zararsız ama gürültülü hatalar basıyor.
+# İzleyiciyi kapatıyoruz (kod değişince Ctrl+C ile yeniden başlatın).
+[server]
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false

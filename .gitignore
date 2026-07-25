@@ -1,0 +1,21 @@
+# Ortam
+.venv/
+__pycache__/
+*.pyc
+
+# Üretilen veriler (her makinede yeniden üretilir: python demo/seed_data.py)
+demo/hospital.db
+.chroma/
+.audit.db
+eval/results.json
+
+# Eğitim çıktıları (büyük dosyalar — HF Hub'a yüklenir, git'e değil)
+training/output/
+*.gguf
+*.safetensors
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
