@@ -40,6 +40,15 @@ streamlit run ui/streamlit_app.py
 ```bash
 python eval/evaluate.py --db demo/hospital.db --testset eval/test_set_tr.jsonl
 # Çıktı: execution accuracy %, soru bazlı rapor → eval/results.json
+
+# LLM'siz bütünlük kontrolü (gold SQL'ler geçerli mi ve çalışıyor mu):
+python eval/evaluate.py --db demo/hospital.db --gold-only
+```
+
+## Testler
+
+```bash
+pytest tests/ -q        # birim testleri (LLM gerektirmez; önce demo DB'yi üretin)
 ```
 
 ## QLoRA fine-tune (ADR-2 koşulu: baseline < %80 ise)

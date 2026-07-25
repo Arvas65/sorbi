@@ -16,9 +16,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import config, executor, generator
+from app import config, executor
 from app.preprocess import resolve_dates
-from app.schema_rag import ContextIndex
 from app.validator import validate_and_transpile
 
 
@@ -32,7 +31,27 @@ def _normalize(rows: list) -> set:
     return out
 
 
-def run_one(item: dict, idx: ContextIndex, mode: str) -> dict:
+def gold_check(items: list) -> int:
+    """LLM'siz bütünlük kontrolü: her gold_sql doğrulanır ve çalıştırılır.
+    Test seti bozuksa accuracy ölçümü anlamsız olur (G-11 önkoşulu)."""
+    hatali = 0
+    for i, item in enumerate(items, 1):
+        v = validate_and_transpile(item["gold_sql"])
+        if v.ok:
+            r = executor.run(v.sql)
+            durum = "OK" if r.status == "BASARILI" else f"CALISMA_HATASI: {r.error[:80]}"
+        else:
+            durum = f"DOGRULAMA_RED: {v.error[:80]}"
+        if durum != "OK":
+            hatali += 1
+        isaret = "+" if durum == "OK" else "-"
+        print(f"[{i:02d}/{len(items)}] {isaret} {item['soru'][:60]}  [{durum}]")
+    print("\n" + "=" * 60)
+    print(f"GOLD SQL SAĞLIĞI: {len(items) - hatali}/{len(items)} çalışıyor")
+    return hatali
+
+
+def run_one(item: dict, idx, mode: str) -> dict:
     t0 = time.time()
     rec = {"id": item["id"], "soru": item["soru"], "zorluk": item["zorluk"],
            "join": item["join"], "dogru": False, "asama": "", "sql": ""}
@@ -92,11 +111,20 @@ def main():
     ap.add_argument("--testset", default=os.path.join(os.path.dirname(__file__), "test_set_tr.jsonl"))
     ap.add_argument("--mode", default=config.MODE, choices=["local", "api"])
     ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "results.json"))
+    ap.add_argument("--gold-only", action="store_true",
+                    help="LLM'siz mod: yalnızca gold_sql'lerin geçerliliğini ve çalıştığını kontrol et")
     args = ap.parse_args()
     if args.db:
         config.DB_URL = f"sqlite:///{os.path.abspath(args.db)}"
 
     items = [json.loads(l) for l in open(args.testset, encoding="utf-8") if l.strip()]
+
+    if args.gold_only:
+        sys.exit(1 if gold_check(items) else 0)
+
+    from app import generator            # LLM gerektiren yol — gecikmeli import
+    from app.schema_rag import ContextIndex
+    globals()["generator"] = generator
     idx = ContextIndex(config.DB_URL)
     results = []
     for i, item in enumerate(items, 1):

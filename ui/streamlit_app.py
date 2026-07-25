@@ -27,7 +27,7 @@ with st.sidebar:
     st.caption(f"Hedef lehçe: {config.TARGET_DIALECT}")
     kullanici = st.text_input("Kullanıcı adı (denetim izi için)", value="demo")
 
-tab_soru, tab_gecmis = st.tabs(["Soru", "Denetim izi"])
+tab_soru, tab_gecmis, tab_sema = st.tabs(["Soru", "Denetim izi", "Şema"])
 
 with tab_soru:
     ornekler = [
@@ -76,8 +76,23 @@ with tab_soru:
                 st.code(ans.sql, language="sql")
             with col_sonuc:
                 st.subheader(f"Sonuç ({ans.rowcount} satır)")
-                st.dataframe(pd.DataFrame(ans.rows, columns=ans.columns),
-                             width="stretch")
+                df = pd.DataFrame(ans.rows, columns=ans.columns)
+                sayisal = [c for c in df.columns[1:]
+                           if pd.api.types.is_numeric_dtype(df[c])]
+                if len(df.columns) >= 2 and sayisal and 1 < len(df) <= 50:
+                    t_tablo, t_grafik = st.tabs(["Tablo", "Grafik"])
+                    with t_tablo:
+                        st.dataframe(df, width="stretch")
+                    with t_grafik:
+                        try:
+                            st.bar_chart(df.set_index(df.columns[0])[sayisal])
+                        except Exception:
+                            st.caption("Bu sonuç grafik olarak çizilemedi.")
+                else:
+                    st.dataframe(df, width="stretch")
+                st.download_button("CSV indir",
+                                   df.to_csv(index=False).encode("utf-8-sig"),
+                                   file_name="sorbi_sonuc.csv", mime="text/csv")
 
 with tab_gecmis:
     st.subheader("Denetim izi (G-17)")
@@ -88,3 +103,26 @@ with tab_gecmis:
             width="stretch")
     else:
         st.caption("Henüz kayıt yok.")
+
+with tab_sema:
+    st.subheader("Veritabanı şeması")
+    st.caption("Model bu şemayı görür — soru sorarken tablo/kolon adlarına bakmak isteyebilirsiniz.")
+    try:
+        from sqlalchemy import create_engine, inspect, text as _text
+        _eng = create_engine(config.DB_URL)
+        _insp = inspect(_eng)
+        for _t in _insp.get_table_names():
+            with _eng.connect() as _c:
+                _n = _c.execute(_text(f'SELECT COUNT(*) FROM "{_t}"')).scalar()
+            with st.expander(f"{_t}  ({_n} satır)"):
+                _cols = _insp.get_columns(_t)
+                st.table(pd.DataFrame(
+                    [{"kolon": c["name"], "tip": str(c["type"])} for c in _cols]))
+                with _eng.connect() as _c:
+                    _rs = _c.execute(_text(f'SELECT * FROM "{_t}" LIMIT 5'))
+                    st.caption("İlk 5 satır:")
+                    st.dataframe(pd.DataFrame(_rs.fetchall(), columns=list(_rs.keys())),
+                                 width="stretch")
+        _eng.dispose()
+    except Exception as e:
+        st.error(f"Şema okunamadı: {e}")
