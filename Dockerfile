@@ -3,8 +3,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Bağımlılıklar (katman önbelleği için önce requirements)
-COPY requirements.txt .
+# Bağımlılıklar önce (katman önbelleği). Pinlenmiş kilit dosyaları kullanılır:
+# aynı commit iki kez derlendiğinde aynı sürümler kurulur.
+COPY requirements.txt ./
+COPY requirements/ ./requirements/
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .

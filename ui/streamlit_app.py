@@ -76,6 +76,16 @@ with tab_soru:
             st.error(f"⚠️ {ans.message}")
             st.code(ans.sql, language="sql")
         else:
+            # B-7: uyarı SONUCUN ÜSTÜNDE durur. Altına konursa okunmaz —
+            # kullanıcı sayıyı görür, alır, gider. Sessiz yanlışın tamamı
+            # "temiz görünen bir tablo" olarak geldiği için, tabloyu görmeden
+            # önce şüpheyi görmesi gerekir.
+            if ans.bayraklar:
+                st.warning("⚠️ **Bu cevap yanlış olabilir.** Sistem sonucu "
+                           "aşağıdaki sebeplerle şüpheli buldu:\n\n"
+                           + "\n".join(f"- {b}" for b in ans.bayraklar)
+                           + "\n\nSorgu çalıştı ve hata vermedi; bu bir hata "
+                             "mesajı değil, doğrulama isteğidir.")
             col_sonuc, col_sql = st.columns([3, 2])
             with col_sql:
                 st.subheader("Üretilen SQL")  # G-02: her zaman görünür
@@ -114,18 +124,25 @@ with tab_sema:
     st.subheader("Veritabanı şeması")
     st.caption("Model bu şemayı görür — soru sorarken tablo/kolon adlarına bakmak isteyebilirsiniz.")
     try:
-        from sqlalchemy import create_engine, inspect, text as _text
+        from sqlalchemy import create_engine, inspect
+        from sqlalchemy import text as _text
         _eng = create_engine(config.DB_URL)
         _insp = inspect(_eng)
+        # Tanımlayıcılar sürücünün kendi alıntılayıcısından geçer (İP-16).
+        # Elle `"{ad}"` yazmak, adın içinde çift tırnak olduğunda kırılır ve
+        # tablo adı KULLANICI ŞEMASINDAN gelir — bugün istismar edilebilir
+        # olmasa da ürünün kendi ilkesi bu kalıbı yasaklıyor.
+        _alintila = _eng.dialect.identifier_preparer.quote
         for _t in _insp.get_table_names():
+            _tq = _alintila(_t)
             with _eng.connect() as _c:
-                _n = _c.execute(_text(f'SELECT COUNT(*) FROM "{_t}"')).scalar()
+                _n = _c.execute(_text(f"SELECT COUNT(*) FROM {_tq}")).scalar()  # noqa: S608
             with st.expander(f"{_t}  ({_n} satır)"):
                 _cols = _insp.get_columns(_t)
                 st.table(pd.DataFrame(
                     [{"kolon": c["name"], "tip": str(c["type"])} for c in _cols]))
                 with _eng.connect() as _c:
-                    _rs = _c.execute(_text(f'SELECT * FROM "{_t}" LIMIT 5'))
+                    _rs = _c.execute(_text(f"SELECT * FROM {_tq} LIMIT 5"))  # noqa: S608
                     st.caption("İlk 5 satır:")
                     st.dataframe(pd.DataFrame(_rs.fetchall(), columns=list(_rs.keys())),
                                  width="stretch")

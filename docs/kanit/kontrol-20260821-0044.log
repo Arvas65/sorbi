@@ -1,0 +1,237 @@
+SorBI kontrol raporu - 20260821-0044
+Dizin: C:\Users\Arvas\SorB
+
+=== PYTHON ===
+3.13.12 (tags/v3.13.12:1cbe481, Feb  3 2026, 18:22:25) [MSC v.1944 64 bit (AMD64)]
+C:\Users\Arvas\SorBı\.venv\Scripts\python.exe
+ 
+=== RUFF ===
+All checks passed!
+ 
+=== PYTEST ===
+........................................................................ [ 22%]
+........................................................................ [ 45%]
+........................................................................ [ 67%]
+........................................................................ [ 90%]
+................................                                         [100%]
+============================== warnings summary ===============================
+tests/test_ornek_degerler.py::test_kapatilabilir
+  C:\Users\Arvas\SorBı\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:2697: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x00000224B91FB790>
+    def visit_textclause(self, textclause, add_to_result_map=None, **kw):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_ornek_degerler.py::test_kapatilabilir
+  C:\Users\Arvas\SorBı\.venv\Lib\site-packages\sqlalchemy\sql\compiler.py:2697: ResourceWarning: unclosed database in <sqlite3.Connection object at 0x00000224BE73E200>
+    def visit_textclause(self, textclause, add_to_result_map=None, **kw):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.13.12-final-0 _______________
+
+Name                    Stmts   Miss  Cover   Missing
+-----------------------------------------------------
+app\__init__.py             0      0   100%
+app\audit.py               16      5    69%   36-41
+app\auth.py                53      2    96%   65, 67
+app\config.py              34      0   100%
+app\connections.py         62     11    82%   58, 61-68, 73-76
+app\executor.py            46      1    98%   56
+app\generator.py           74     44    41%   37-66, 121, 130, 134-147, 151, 155-157, 162-171, 189-210
+app\guven.py              217      8    96%   226, 305, 307, 310-311, 391, 476-477
+app\pipeline.py            66      7    89%   83, 120-126, 129
+app\preprocess.py          70      0   100%
+app\schema_rag.py         197     22    89%   70-72, 80-81, 114, 176, 259-260, 284-285, 299, 303-309, 326-329
+app\validator.py           69      5    93%   71, 77, 116, 140-141
+eval\__init__.py            0      0   100%
+eval\evaluate.py          410    160    61%   54, 58-64, 103, 109-110, 130-236, 251, 253, 315-326, 328, 333, 459, 494, 497, 509, 525-536, 575, 733, 740, 746-802, 806
+eval\guven_olcum.py       193     50    74%   52, 128-136, 159, 161-163, 166-168, 175-176, 183-184, 193, 227, 254-256, 260-261, 265-274, 293-296, 317-319, 321-323, 331-333, 337
+eval\tarih_sabitle.py      54      4    93%   82-83, 93-94
+eval\yeni_sorular.py        1      1     0%   19
+-----------------------------------------------------
+TOTAL                    1562    320    80%
+Required test coverage of 70.0% reached. Total coverage: 79.51%
+320 passed, 2 warnings in 62.16s (0:01:02)
+ 
+=== GOLD-ONLY ===
+[01/101] + Hastanede kaç doktor çalışıyor?  [OK]
+[02/101] + Kayıtlı hasta sayısı kaç?  [OK]
+[03/101] + Bölümlerin adlarını listeler misin?  [OK]
+[04/101] + Profesör unvanlı doktorlar kimler?  [OK]
+[05/101] + İstanbul'da yaşayan kaç hasta var?  [OK]
+[06/101] + Kadın hastaların sayısı nedir?  [OK]
+[07/101] + En pahalı 3 işlem hangileri?  [OK]
+[08/101] + Ücreti 1000 TL'nin üzerinde olan işlemleri göster  [OK]
+[09/101] + İptal edilen randevu sayısı kaç?  [OK]
+[10/101] + Randevusuna gelmeyen kaç kayıt var?  [OK]
+[11/101] + Ödemesi bekleyen faturaların toplam tutarı ne kadar?  [OK]
+[12/101] + Geciken fatura sayısı kaç?  [OK]
+[13/101] + Ortalama fatura tutarı nedir?  [OK]
+[14/101] + En yüksek fatura tutarı ne kadar?  [OK]
+[15/101] + Şu anda hastanede yatan hasta sayısı kaç?  [OK]
+[16/101] + Şehirlere göre hasta sayısını göster  [OK]
+[17/101] + Cinsiyete göre hasta dağılımı nedir?  [OK]
+[18/101] + Randevuların durumlara göre dağılımı nasıl?  [OK]
+[19/101] + 2020 yılından sonra işe başlayan doktorlar kimler?  [OK]
+[20/101] + En sık konulan 5 tanı nedir?  [OK]
+[21/101] + Geçen ay kaç randevu oluşturuldu?  [OK]
+[22/101] + Bu yıl kesilen faturaların toplam tutarı nedir?  [OK]
+[23/101] + Son 30 günde kaydolan hasta sayısı kaç?  [OK]
+[24/101] + Bugün bekleyen kaç randevu var?  [OK]
+[25/101] + Geçen yıl kaç yatış yapıldı?  [OK]
+[26/101] + Kardiyoloji bölümündeki doktorlar kimler?  [OK]
+[27/101] + Her bölümde kaç doktor çalışıyor?  [OK]
+[28/101] + En çok tamamlanmış randevusu olan 5 doktor kim?  [OK]
+[29/101] + En çok randevu alan 5 hasta kim?  [OK]
+[30/101] + Bölümlere göre yatış sayısını göster  [OK]
+[31/101] + Ödenmemiş faturalara karşılık gelen tanıların dağılımı nedir  [OK]
+[32/101] + Her işlem kaç muayenede uygulanmış?  [OK]
+[33/101] + Dahiliye bölümünde şu an yatan kaç hasta var?  [OK]
+[34/101] + Ankara'da yaşayan hastaların toplam randevu sayısı kaç?  [OK]
+[35/101] + Uzman doktorların tamamlanan randevu sayısı kaç?  [OK]
+[36/101] + Geçen ay en çok muayene yapan 5 doktor kim?  [OK]
+[37/101] + Bölümlere göre toplam ciro nedir?  [OK]
+[38/101] + Hipertansiyon tanısı konan hastalar hangi şehirlerden?  [OK]
+[39/101] + MR çektiren kaç farklı hasta var?  [OK]
+[40/101] + En çok fatura tutarı üreten 5 doktor kim?  [OK]
+[41/101] + Kardiyoloji bölümünün geçen ayki fatura toplamı nedir?  [OK]
+[42/101] + En çok gelir getiren 3 işlem hangisi?  [OK]
+[43/101] + Birden fazla muayene olmuş hasta sayısı kaç?  [OK]
+[44/101] + Doktor başına ortalama fatura tutarı en yüksek 5 doktor kim?  [OK]
+[45/101] + Göz Hastalıkları bölümüne bu yıl kaç farklı hasta geldi?  [OK]
+[46/101] + Randevusuna gelmeme oranı en yüksek 5 doktor kim?  [OK]
+[47/101] + Bu yıl aylara göre fatura toplamları nedir?  [OK]
+[48/101] + 7 günden uzun süren yatış sayısı kaç?  [OK]
+[49/101] + Endoskopi yapılan muayenelerin toplam fatura tutarı nedir?  [OK]
+[50/101] + En genç 5 hasta kim?  [OK]
+[51/101] + En eski kayıtlı hasta hangi tarihte kaydolmuş?  [OK]
+[52/101] + Kaç farklı şehirden hastamız var?  [OK]
+[53/101] + Doçent unvanlı kaç doktor var?  [OK]
+[54/101] + Ödenmiş faturaların toplamı ne kadar?  [OK]
+[55/101] + Hangi katlarda bölüm var?  [OK]
+[56/101] + En ucuz işlem hangisi?  [OK]
+[57/101] + Erkek hasta sayısı kaçtır?  [OK]
+[58/101] + Tamamlanan randevu sayısı nedir?  [OK]
+[59/101] + Hâlâ hastanede yatan hastaların oda numaraları neler?  [OK]
+[60/101] + İşlemlerin ortalama ücreti kaç TL?  [OK]
+[61/101] + Bursa'da yaşayan hastaları listele  [OK]
+[62/101] + Kaç fatura kesilmiş toplamda?  [OK]
+[63/101] + En yüksek ücretli 3 işlemin adı ve ücreti nedir?  [OK]
+[64/101] + Ödeme durumlarına göre fatura sayısı nasıl dağılıyor?  [OK]
+[65/101] + 2015'ten önce işe başlayan doktor sayısı kaç?  [OK]
+[66/101] + Nöroloji bölümünde çalışan doktor sayısı kaç?  [OK]
+[67/101] + Her doktorun kaç randevusu var?  [OK]
+[68/101] + İptal edilmiş randevusu olan hasta sayısı kaç?  [OK]
+[69/101] + Hangi bölümde en çok doktor çalışıyor?  [OK]
+[70/101] + Yatışı olan hastaların şehirleri nedir?  [OK]
+[71/101] + Muayenelerde en az 20 kez konulan tanılar hangileri?  [OK]
+[72/101] + Ortopedi bölümüne yatan hasta sayısı kaç?  [OK]
+[73/101] + Geciken faturaların toplam tutarı ne kadar?  [OK]
+[74/101] + Her ödeme durumu için ortalama fatura tutarı nedir?  [OK]
+[75/101] + Kaç muayenenin faturası kesilmiş?  [OK]
+[76/101] + EKG işlemi kaç kez uygulanmış?  [OK]
+[77/101] + Profesörlerin toplam randevu sayısı kaçtır?  [OK]
+[78/101] + Kardiyoloji bölümündeki doktorların randevu sayısı toplam ka  [OK]
+[79/101] + Migren tanısı konan muayenelerin faturalarının toplamı nedir  [OK]
+[80/101] + İstanbul'daki hastaların tamamlanmış randevu sayısı kaç?  [OK]
+[81/101] + Hangi bölümün doktorları en çok muayene yapmış?  [OK]
+[82/101] + Röntgen çekilen muayenelerin tanıları nelerdir?  [OK]
+[83/101] + Ankara'daki hastaların ödenmemiş fatura toplamı ne kadar?  [OK]
+[84/101] + Her bölümün ortalama fatura tutarı nedir?  [OK]
+[85/101] + En çok işlem uygulanan 3 muayenenin tanısı nedir?  [OK]
+[86/101] + Uzman doktorların baktığı hastaların şehirleri nelerdir?  [OK]
+[87/101] + Gastrit tanısı alan kaç farklı hasta var?  [OK]
+[88/101] + Bu ay kaç fatura kesildi?  [OK]
+[89/101] + Son 7 günde kaç randevu var?  [OK]
+[90/101] + 2025 yılında kaydolan hasta sayısı kaç?  [OK]
+[91/101] + Hâlâ yatan hastalar kaç gündür hastanede?  [OK]
+[92/101] + Ortalama yatış süresi kaç gün?  [OK]
+[93/101] + Ortalamanın üzerinde ücreti olan işlemler hangileri?  [OK]
+[94/101] + Ortalamadan fazla randevusu olan doktorlar kimler?  [OK]
+[95/101] + Kadın hastaların ortalama yaşı kaç?  [OK]
+[96/101] + Yıllara göre kaç hasta kaydolmuş?  [OK]
+[97/101] + En sık uygulanan işlem hangisi?  [OK]
+[98/101] + En uzun yatış kaç gün sürmüş?  [OK]
+[99/101] + Beşten fazla randevusu olan hasta sayısı kaç?  [OK]
+[100/101] + En çok hasta kaydı olan şehir hangisi?  [OK]
+[101/101] + Ortalama fatura tutarının üzerinde kaç fatura var?  [OK]
+
+============================================================
+GOLD SQL SAĞLIĞI: 101/101 çalışıyor
+ 
+=== GUVEN KARNESI ===
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|##########| 199/199 [00:00<00:00, 3958.05it/s]
+====================================================================
+GÜVEN KONTROLÜ MUTASYON KARNESİ (B-7, LLM'siz)
+====================================================================
+Ölçüm günü (sabit)      : 2026-07-23
+  + Zamana bağlı 13 sorunun tamamı dolu döndü
+Kapalı kontrol          : bicim_sayi, sema_ortusmez
+Doğru sorgu (gold)      : 101
+  gereksiz bayrak       : 1 (%1.0)   <- DÜŞMELİ
+Bilinen yanlış (mutant) : 239   (sonucu değişmeyen 18 mutant sayılmadı)
+  yakalanan             : 199 (%83.3)   <- YÜKSELMELİ
+
+Mutasyon türüne göre yakalama:
+  bos_kume           96/101  %95
+  filtre_degeri      35/37   %95
+  toplama_takasi     26/30   %87
+  where_dus          32/54   %59
+  limit_dus          10/17   %59
+
+Kontrol bazında (yanlışta kaç kez / doğruda kaç kez / isabet):
+  sifir_toplama            75 /    0  %100
+  bos_sonuc_filtreli       54 /    0  %100
+  bilinmeyen_deger         35 /    0  %100
+  atlanan_kolon             5 /    0  %100
+  filtresiz                33 /    0  %100
+  bicim_adet                4 /    0  %100
+  bos_sonuc                 1 /    0  %100
+  toplama_uyumsuz          29 /    1  %97
+
+Gereksiz bayrak örnekleri (doğru cevaba konan uyarı):
+  [76] EKG işlemi kaç kez uygulanmış?                             toplama_uyumsuz
+
+Kaçırılan örnekler (yanlış cevap, uyarı yok):
+  [6] where_dus       Kadın hastaların sayısı nedir?
+  [10] where_dus       Randevusuna gelmeyen kaç kayıt var?
+  [12] where_dus       Geciken fatura sayısı kaç?
+  [14] bos_kume        En yüksek fatura tutarı ne kadar?
+  [15] where_dus       Şu anda hastanede yatan hasta sayısı kaç?
+  [21] where_dus       Geçen ay kaç randevu oluşturuldu?
+  [22] where_dus       Bu yıl kesilen faturaların toplam tutarı nedir?
+  [24] where_dus       Bugün bekleyen kaç randevu var?
+
+KARNE_OZET gun=2026-07-23 gold=101 alarm=1 mutant=239 yakalanan=199 zbos=0
+
+ÖNCEKİ KARNE: FARKLI
+  önceki: KARNE_OZET gun=2026-07-23 gold=3 alarm=0 mutant=3 yakalanan=3 zbos=0
+  şimdi : KARNE_OZET gun=2026-07-23 gold=101 alarm=1 mutant=239 yakalanan=199 zbos=0
+ 
+=== DOCTOR ===
+SorBI ölçüm ortamı kontrolü
+============================================================
+Python      : 3.13.12 (Windows AMD64)
+Mod         : local
+Model       : qwen2.5-coder:7b-instruct
+Ollama      : http://localhost:11434
+  + servis ayakta, 6 model yüklü
+  + model bulundu: qwen2.5-coder:7b-instruct
+
+  Tek soruluk deneme koşuluyor (bu adım Vulkan çökmesini yakalar)...
+  + üretim çalıştı (26.4 sn), guven=0.95
+    üretilen SQL: SELECT COUNT(*) FROM doktor
+
+  + Model GPU'da: 79% VRAM'de (4.3 / 5.4 GB)
+
+DOCTOR_OZET hizlandirma=gpu model=qwen2.5-coder:7b-instruct deneme_sn=26.4 olcum_gunu=2026-07-23
+
+  ~ Uyarı: tek soru 26.4 sn sürdü, G-12 hedefi 10 sn.
+    Ölçüm koşabilir ama G-12 muhtemelen karşılanmayacak; bu da bir bulgudur.
+
+============================================================
+ORTAM HAZIR — ölçümü koşabilirsiniz:
+  python eval/evaluate.py --db demo/hospital.db

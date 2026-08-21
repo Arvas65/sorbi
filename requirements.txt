@@ -1,13 +1,27 @@
-streamlit>=1.35
-sqlalchemy>=2.0
-sqlglot>=25.0
-chromadb>=0.5
-sentence-transformers>=3.0
-requests>=2.31
-pandas>=2.0
-pytest>=8.0
+# SorBI — tam kurulum (çekirdek + RAG + arayüz).
+#
+# Bu dosya geriye dönük uyumluluk içindir: README'deki `pip install -r requirements.txt`
+# komutu çalışmaya devam eder. Sürümler requirements/ altında katman katman pinlenmiştir.
+#
+#   requirements/core.txt      pipeline — LLM ve arayüz olmadan koşar
+#   requirements/rag.txt       vektör bağlam (Chroma + embedding); kurulmazsa
+#                              schema_rag anahtar-kelime moduna düşer, sistem çalışır
+#   requirements/ui.txt        Streamlit arayüzü
+#   requirements/dev.txt       test + lint (CI bunu kurar)
+#   requirements/drivers.txt   PostgreSQL / MySQL sürücüleri (opsiyonel)
+#
+# Pinleri güncellemek için (requirements/*.in dosyalarını düzenledikten sonra):
+#   uv pip compile requirements/all.in --universal --python-version 3.10 -o requirements/all.txt
+#   for k in core rag ui dev drivers; do \
+#     uv pip compile requirements/$k.in --universal --python-version 3.10 \
+#       -c requirements/all.txt -o requirements/$k.txt; done
+#
+# all.txt tek sürüm kaynağıdır; katmanlar ona kısıtlanır, böylece çelişen pin oluşamaz.
 
-# Opsiyonel DB sürücüleri (Bağlantı Yöneticisi'nde seçtiğiniz tipe göre kurun):
-# psycopg2-binary>=2.9    # PostgreSQL
-# pymysql>=1.1            # MySQL / MariaDB
-# pyodbc>=5.0             # SQL Server (ayrıca ODBC Driver 17 gerekir)
+-r requirements/core.txt
+-r requirements/rag.txt
+-r requirements/ui.txt
+
+# SQL Server için: ODBC Driver 17 sistem paketi + pyodbc gerekir; platforma bağlı
+# olduğu için kilide dahil edilmemiştir.
+#   pip install "pyodbc>=5.0"

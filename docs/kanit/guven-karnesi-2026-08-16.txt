@@ -1,0 +1,40 @@
+====================================================================
+GÜVEN KONTROLÜ MUTASYON KARNESİ (B-7, LLM'siz)
+====================================================================
+Kapalı kontrol          : bicim_sayi, sema_ortusmez
+Doğru sorgu (gold)      : 101
+  gereksiz bayrak       : 1 (%1.0)   <- DÜŞMELİ
+Bilinen yanlış (mutant) : 240   (sonucu değişmeyen 17 mutant sayılmadı)
+  yakalanan             : 199 (%82.9)   <- YÜKSELMELİ
+
+Mutasyon türüne göre yakalama:
+  bos_kume           96/101  %95
+  filtre_degeri      35/38   %92
+  toplama_takasi     26/30   %87
+  where_dus          32/54   %59
+  limit_dus          10/17   %59
+
+Kontrol bazında (yanlışta kaç kez / doğruda kaç kez / isabet):
+  sifir_toplama            75 /    0  %100
+  bos_sonuc_filtreli       54 /    0  %100
+  bilinmeyen_deger         35 /    0  %100
+  atlanan_kolon             5 /    0  %100
+  filtresiz                33 /    0  %100
+  bicim_adet                4 /    0  %100
+  bos_sonuc                 1 /    0  %100
+  toplama_uyumsuz          29 /    1  %97
+
+Gereksiz bayrak örnekleri (doğru cevaba konan uyarı):
+  [76] EKG işlemi kaç kez uygulanmış?                             toplama_uyumsuz
+
+Kaçırılan örnekler (yanlış cevap, uyarı yok):
+  [6] where_dus       Kadın hastaların sayısı nedir?
+  [10] where_dus       Randevusuna gelmeyen kaç kayıt var?
+  [12] where_dus       Geciken fatura sayısı kaç?
+  [14] bos_kume        En yüksek fatura tutarı ne kadar?
+  [15] where_dus       Şu anda hastanede yatan hasta sayısı kaç?
+  [21] where_dus       Geçen ay kaç randevu oluşturuldu?
+  [22] where_dus       Bu yıl kesilen faturaların toplam tutarı nedir?
+  [24] where_dus       Bugün bekleyen kaç randevu var?
+
+JSON: /tmp/son.json

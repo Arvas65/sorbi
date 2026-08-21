@@ -7,8 +7,8 @@ istenirse zeyrek/zemberek takılabilir, arayüz aynı kalır).
 """
 import re
 from datetime import date, timedelta
-from typing import Optional
 
+from app import config
 
 # ---------------- G-07: Tarih çözümleme ----------------
 
@@ -24,11 +24,13 @@ def _quarter_range(y: int, q: int) -> tuple[date, date]:
     return start, end
 
 
-def resolve_dates(question: str, today: Optional[date] = None) -> tuple[str, list[dict]]:
+def resolve_dates(question: str, today: date | None = None) -> tuple[str, list[dict]]:
     """Soru içindeki göreli zaman ifadelerini bulur, mutlak aralığa çevirir.
     Dönen: (aralık açıklaması eklenmiş soru, çözülen aralıkların listesi)
     """
-    today = today or date.today()
+    # Varsayılan "bugün" config'ten gelir: üretimde gerçek tarih, ölçümde
+    # SORBI_BUGUN ile sabitlenebilir (İP-23). Çağıran açıkça verirse o kazanır.
+    today = today or config.bugun()
     q = question
     found: list[dict] = []
 
@@ -103,11 +105,18 @@ def light_stem(word: str) -> str:
 
 _TOKEN = re.compile(r"[a-zçğıöşü]+", re.IGNORECASE)
 
+# 'İ'.lower() Python'da 'i̇' verir: 'i' + U+0307 (birleştirici nokta). Bu ikinci
+# kod noktası _TOKEN sınıfında olmadığı için 'İşlemlerin' → ['i', 'şlemlerin']
+# diye ikiye bölünüyordu; 'i' kısa diye atılınca geriye BAŞ HARFİ EKSİK bir kök
+# kalıyordu ('şlem'). Türkçe bir üründe İ ile başlayan her kelime bundan
+# etkileniyordu. (Bulgu: İP-03c, güven kontrolünün yanlış alarmları üzerinden.)
+_BIRLESTIRICI = re.compile(r"[\u0300-\u036f]")
+
 
 def keywords(question: str) -> list[str]:
     """RAG araması için köke indirgenmiş, tekrarsız anahtar kelimeler."""
     stems = []
-    for tok in _TOKEN.findall(question.lower()):
+    for tok in _TOKEN.findall(_BIRLESTIRICI.sub("", question.lower())):
         if len(tok) < 3:
             continue
         s = light_stem(tok)

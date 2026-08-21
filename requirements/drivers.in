@@ -1,0 +1,4 @@
+# Opsiyonel veritabanı sürücüleri (Bağlantı Yöneticisi'nde seçilen tipe göre).
+# pyodbc ayrıca "ODBC Driver 17 for SQL Server" sistem paketini gerektirir.
+psycopg2-binary>=2.9
+pymysql>=1.1

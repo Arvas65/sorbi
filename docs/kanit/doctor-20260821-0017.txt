@@ -1,0 +1,21 @@
+SorBI ölçüm ortamý kontrolü
+============================================================
+Python      : 3.13.12 (Windows AMD64)
+Mod         : local
+Model       : llama3.2:3b
+Ollama      : http://localhost:11434
+  + servis ayakta, 6 model yüklü
+  + model bulundu: llama3.2:3b
+
+  Tek soruluk deneme koþuluyor (bu adým Vulkan çökmesini yakalar)...
+  + üretim çalýþtý (23.1 sn), guven=1.0
+    üretilen SQL: SELECT COUNT(*) FROM doktor
+
+  + Model GPU'da: 100% VRAM'de (3.1 / 3.1 GB)
+
+  ~ Uyarý: tek soru 23.1 sn sürdü, G-12 hedefi 10 sn.
+    Ölçüm koþabilir ama G-12 muhtemelen karþýlanmayacak; bu da bir bulgudur.
+
+============================================================
+ORTAM HAZIR — ölçümü koþabilirsiniz:
+  python eval/evaluate.py --db demo/hospital.db

@@ -1,14 +1,15 @@
 .venv/
 .git/
+.github/
 .chroma/
 .sorbi/
 .audit.db
+.pytest_cache/
 __pycache__/
 *.pyc
 demo/hospital.db
 demo/satis.db
 eval/results.json
-training/output/
 *.gguf
 *.safetensors
 .idea/

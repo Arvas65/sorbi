@@ -1,0 +1,110 @@
+[project]
+name = "sorbi"
+version = "3.0.0-dev"
+description = "Türkçe doğal dilden SQL üreten, salt-okunur BI asistanı"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "İhsan Arvas" }]
+keywords = ["text-to-sql", "turkish", "business-intelligence", "kvkk", "local-llm"]
+
+# Çalışma zamanı bağımlılıkları katmanlara ayrılmıştır ve requirements/ altında
+# pinlenmiştir. Buradaki aralıklar niyeti, oradaki pinler tekrarlanabilirliği anlatır.
+#   requirements/core.txt     pipeline (LLM ve arayüz olmadan koşar)
+#   requirements/rag.txt      vektör bağlam — kurulmazsa anahtar-kelime moduna düşer
+#   requirements/ui.txt       Streamlit arayüzü
+#   requirements/dev.txt      test + lint
+#   requirements/drivers.txt  opsiyonel veritabanı sürücüleri
+dependencies = [
+    "sqlalchemy>=2.0",
+    "sqlglot>=25.0",
+    "requests>=2.31",
+    "pandas>=2.0,<3",
+]
+
+[project.optional-dependencies]
+rag = ["chromadb>=0.5", "sentence-transformers>=3.0"]
+ui = ["streamlit>=1.35"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6"]
+
+[project.urls]
+Repository = "https://github.com/Arvas65/sorbi"
+
+[tool.setuptools]
+packages = ["app"]
+
+# ---------------------------------------------------------------- ruff
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+extend-exclude = [".venv", "demo/*.db", "training"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle hataları
+    "F",    # pyflakes — kullanılmayan isim, tanımsız değişken
+    "W",    # pycodestyle uyarıları
+    "I",    # isort — içe aktarım sırası
+    "UP",   # pyupgrade
+    "B",    # bugbear — sessiz hata üreten kalıplar
+    "S",    # bandit — güvenlik
+]
+ignore = [
+    "E501",    # satır uzunluğu: line-length zaten zorluyor, çift uyarı istemiyoruz
+    "B008",    # çağrıyı varsayılan argümanda kullanma — Streamlit/FastAPI kalıbı
+]
+
+[tool.ruff.lint.per-file-ignores]
+# --- Kalıcı istisnalar: kural burada zaten doğru davranışı işaretliyor ---
+# Testlerde assert kullanımı ve sabit "şifre" dizgileri beklenen şeydir.
+"tests/*" = ["S101", "S105", "S106"]
+# Demo veri üreteci sözde-rastgele veri üretir; kriptografik rastgelelik gerekmez.
+# S608: tablo adları scriptin kendi sabit listesinden geliyor, dış girdi yok.
+"demo/*" = ["S311", "S608"]
+
+# --- GEÇİCİ İSTİSNALAR (2026-08-11, İP-01) ---
+# Aşağıdakiler susturulmuş HATALARDIR, kabul edilmiş kalıplar değil. Her biri bir
+# iş paketine bağlıdır ve o İP tamamlandığında bu satır SİLİNECEKTİR.
+# Susturmanın gerekçesi: İP-01 davranış değiştirmeyen bir altyapı paketidir;
+# bu bulguları burada düzeltmek kapsam kaymasıdır. BACKLOG.md'de kayıtlıdırlar.
+#
+# S608: Dashboard sorguları tablo adlarını f-string ile kuruyor. Girdi kullanıcıdan
+#       değil şema keşfinden geliyor, ama kalıp ürünün kendi ilkesine aykırı. → İP-16
+"ui/*" = ["S608"]
+# (İP-03/A-1 ile kaldırıldı: eval/evaluate.py'deki globals() enjeksiyonu artık yok,
+#  F821 istisnasına gerek kalmadı. Bu satırın silinmesi vaadin yerine getirildiğinin kanıtıdır.)
+# S110/B904: generator.py'de API hatası sessizce yutuluyor ve yerel moda düşülüyor.
+#       Kullanıcı hangi modda cevap aldığını görüyor ama hatanın ne olduğunu kimse
+#       görmüyor. Yapısal loglama (E-4) ile kapanacak. → İP-15
+"app/generator.py" = ["S110", "B904"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "ui", "eval"]
+
+# ---------------------------------------------------------------- pytest
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "needs_llm: gerçek bir LLM servisi gerektirir (CI'da atlanır)",
+    "needs_server_db: Postgres/MySQL/MSSQL konteyneri gerektirir (CI'da atlanır)",
+]
+
+# ---------------------------------------------------------------- coverage
+
+[tool.coverage.run]
+source = ["app", "eval"]
+omit = ["*/__pycache__/*", "*/.venv/*"]
+
+[tool.coverage.report]
+# ZORLAYICI (İP-15 / E-4). Tarihçe: İP-01 %55 (yalnız app/) → İP-03/A-1 %63
+# (app/ + eval/) → İP-03c %74 (uçtan uca hat testleri eklendi).
+#
+# Eşik 70'te tutuluyor, 74'te değil: eşiği ölçülen değere yapıştırmak her
+# küçük eklemeyi kırar ve ekip eşiği düşürmeye alışır. Üç puanlık pay,
+# gerilemeyi yakalar ama gürültüyü geçirir. Yükseltmek ayrı bir karardır.
+fail_under = 70
+show_missing = true
+skip_covered = false

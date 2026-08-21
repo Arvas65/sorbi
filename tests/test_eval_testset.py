@@ -22,7 +22,7 @@ pytestmark = pytest.mark.skipif(not os.path.exists(DB),
 
 def _items():
     with open(TESTSET, encoding="utf-8") as f:
-        return [json.loads(l) for l in f if l.strip()]
+        return [json.loads(satir) for satir in f if satir.strip()]
 
 
 def test_testset_alanlari_tam():

@@ -1,7 +1,7 @@
 """Ön işleme birim testleri (G-07 tarih çözümleme, G-09 kök indirgeme)."""
 from datetime import date
 
-from app.preprocess import resolve_dates, light_stem, keywords
+from app.preprocess import keywords, light_stem, resolve_dates
 
 TODAY = date(2026, 7, 25)  # Cumartesi — testler deterministik olsun diye sabit
 

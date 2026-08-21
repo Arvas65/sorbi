@@ -1,0 +1,6 @@
+# SorBI çekirdek çalışma zamanı — pipeline'ın LLM ve arayüz olmadan koşması için yeterli.
+sqlalchemy>=2.0
+sqlglot>=25.0
+requests>=2.31
+# pandas 3.x davranış değiştirici; uyumluluk doğrulanana kadar 2.x serisinde tutuluyor (backlog: İP-15)
+pandas>=2.0,<3

@@ -65,11 +65,14 @@ with f5:
 # Filtreler -> WHERE parçaları (parametreli — SQL enjeksiyonu yok)
 where, params = ["r.tarih BETWEEN :d1 AND :d2"], {"d1": str(d1), "d2": str(d2)}
 if sec_bolum:
-    where.append("b.ad IN :bolum");   params["bolum"] = tuple(sec_bolum)
+    where.append("b.ad IN :bolum")
+    params["bolum"] = tuple(sec_bolum)
 if sec_unvan:
-    where.append("d.unvan IN :unvan"); params["unvan"] = tuple(sec_unvan)
+    where.append("d.unvan IN :unvan")
+    params["unvan"] = tuple(sec_unvan)
 if sec_sehir:
-    where.append("h.sehir IN :sehir"); params["sehir"] = tuple(sec_sehir)
+    where.append("h.sehir IN :sehir")
+    params["sehir"] = tuple(sec_sehir)
 odeme_where = "AND f.odeme_durumu IN :odeme" if sec_odeme else ""
 if sec_odeme:
     params["odeme"] = tuple(sec_odeme)
@@ -198,7 +201,7 @@ if col_btn.button("Yönetici özeti üret", type="primary"):
         "bolum_dagilimi": bar.head(10).to_dict("records") if not bar.empty else [],
     }
     try:
-        from app.generator import _ollama_chat, LlmError
+        from app.generator import _ollama_chat
         with st.spinner("Yerel model yorumluyor..."):
             cevap = _ollama_chat([
                 {"role": "system", "content":

@@ -23,7 +23,9 @@ Soru (TR) → Ön işleme (kök indirgeme + tarih çözümleme)     app/preproce
 ```bash
 python -m venv .venv
 .venv\Scripts\activate            # Windows  (Linux/Mac: source .venv/bin/activate)
-pip install -r requirements.txt
+pip install -r requirements.txt          # tam kurulum (çekirdek + RAG + arayüz)
+# Hafif kurulum (RAG'siz — bağlam anahtar-kelime moduna düşer, sistem çalışır):
+#   pip install -r requirements/core.txt -r requirements/ui.txt
 
 # Yerel model — https://ollama.com kurulu olmalı:
 ollama pull llama3.2:3b
@@ -58,42 +60,84 @@ Farklı şemayla denemek için ikinci demo: `python demo/seed_satis.py`
 ## Değerlendirme (G-11: execution accuracy)
 
 ```bash
+# 0) Önce ortam kontrolü — Ollama ayakta mı, model yüklü mü, üretim çalışıyor mu:
+python eval/evaluate.py --doctor
+# Sorun varsa tam olarak ne yapılacağını yazar (Windows/Vulkan çökmesi dahil).
+
+# 1) Hızlı deneme (ilk 5 soru):
+python eval/evaluate.py --db demo/hospital.db --limit 5
+
+# 2) Tam ölçüm:
 python eval/evaluate.py --db demo/hospital.db --testset eval/test_set_tr.jsonl
-# Çıktı: execution accuracy %, soru bazlı rapor → eval/results.json
+# Çıktı: accuracy + gecikme (p50/p95), soru bazlı rapor → eval/results.json
+#        ve docs/kanit/accuracy-<tarih>.md + docs/kanit/gecikme-<tarih>.md
 
 # LLM'siz bütünlük kontrolü (gold SQL'ler geçerli mi ve çalışıyor mu):
 python eval/evaluate.py --db demo/hospital.db --gold-only
 ```
 
+> **Not:** G-11'in %80 hedefi henüz **ölçülmedi** — bugün depoda yayınlanmış bir
+> execution accuracy sayısı yoktur. Test setinin kendi sağlığı ölçülüdür (gold SQL 50/50).
+> Baseline ölçümü İP-03'ün konusudur; sonuç `docs/kanit/` altında tarih, model ve
+> commit damgasıyla yayınlanacaktır.
+
+## Sık karşılaşılan kurulum sorunu
+
+`ModuleNotFoundError: No module named 'sqlalchemy'` alıyorsanız, sanal ortam etkin
+değildir — `python` sistem kurulumunu kullanıyordur:
+
+```bat
+.venv\Scripts\activate            :: Windows  (Linux/Mac: source .venv/bin/activate)
+python eval\evaluate.py --doctor
+```
+
+Komut isteminin başında `(.venv)` görmelisiniz. Aktivasyondan sonra da aynı hatayı
+alıyorsanız ortam boştur: `pip install -r requirements\core.txt`
+(ölçüm için yeterli, torch indirmez).
+
+`eval/evaluate.py` bu durumu artık kendisi teşhis eder ve ne yapılacağını yazar.
+
 ## Testler
 
 ```bash
-pytest tests/ -q        # birim testleri (LLM gerektirmez; önce demo DB'yi üretin)
+python demo/seed_data.py && python demo/seed_satis.py   # önce demo veritabanları
+pytest tests/ -q                                        # 88 birim testi, LLM gerektirmez
+ruff check .                                            # lint
 ```
 
-## QLoRA fine-tune (ADR-2 koşulu: baseline < %80 ise)
-
-```bash
-pip install -r training/requirements-train.txt
-python training/generate_dataset.py     # sentetik TR soru-SQL çiftleri
-python training/train_qlora.py          # RTX 3060 6GB için ayarlı (4-bit, 3B)
-```
+CI her PR'da şunu koşar: ruff → pytest (Python 3.10 / 3.11 / 3.13) → test seti bütünlüğü
+(`--gold-only`) → Docker derlemesi. Hiçbir adım gerçek bir LLM servisine ihtiyaç duymaz.
 
 ## Klasör yapısı
 
 ```
-app/        çekirdek pipeline
-ui/         Streamlit soru ekranı
-demo/       hastane şeması + sentetik veri üreteci + terim sözlüğü
-eval/       Türkçe test seti + ölçüm koşucusu
-training/   veri seti üreteci + QLoRA eğitim scripti
-tests/      birim testleri (pytest)
-docs/       sistem analizi dosyası
+app/            çekirdek pipeline
+ui/             Streamlit arayüzü (soru ekranı, dashboard, bağlantı, kullanıcılar)
+demo/           hastane + satış şemaları, sentetik veri üreteçleri, terim sözlüğü
+eval/           Türkçe test seti + ölçüm koşucusu
+tests/          birim testleri (pytest)
+requirements/   katmanlı ve pinlenmiş bağımlılıklar
+docs/           sistem analizi dosyası
+docs/is-hatti/  iş hattı, SPEC, PLAN, backlog
 ```
 
-## Güvenlik varsayılanları (pazarlık edilemez — G-14/16/17/18)
+## Güvenlik: tasarım hedefi ve bugünkü durum
 
-- Veritabanına **yalnızca salt-okunur** bağlantı; SELECT dışı her sorgu sözdizim düzeyinde reddedilir
-- 30 sn'yi aşan sorgu iptal edilir
-- API modunda kişisel veri işaretli kolonlar maskelenir; hasta verisi dış servise gitmez
-- Her soru-sorgu çifti denetim izine yazılır (kim, ne zaman, hangi SQL, kaç satır)
+Bu bölüm bilinçli olarak iki sütunludur. Bir güvenlik özelliğinin "hedeflendiği" ile
+"uygulandığı" aynı şey değildir ve bu ayrımı okuyucudan saklamak, aracın kendisinden
+daha büyük bir risktir.
+
+| Kapı | Hedef | Bugünkü durum |
+|------|-------|---------------|
+| G-18 | SELECT dışı her sorgu sözdizim düzeyinde reddedilir | **Uygulanıyor** — `app/validator.py`, testlerle kapalı. Tehlikeli fonksiyon allowlist'i henüz yok (İP-08) |
+| G-14 salt-okunurluk | Veritabanına yalnızca salt-okunur bağlantı | **Kısmi** — SQLite'ta dosya düzeyinde zorlanıyor. PostgreSQL / MySQL / SQL Server'da salt-okunur hesap kullanmak **kurulum önkoşuludur**; uygulama bunu şu an doğrulamıyor (İP-07) |
+| G-14 zaman aşımı | 30 sn'yi aşan sorgu iptal edilir | **Kısmi** — yalnız SQLite'ta gerçek. Sunucu veritabanlarında sorgu zaman aşımı henüz ayarlanmıyor (İP-07) |
+| G-16 maskeleme | Kişisel veri işaretli kolonlar dış servise giden istekte maskelenir | **Uygulanmadı** — dışarıya veri değeri gitmiyor (istem yalnız şema metaverisi + soru içerir) ve sorudaki 11 haneli kimlik benzeri diziler maskeleniyor. Ancak `demo/glossary.json` içindeki `masked_columns` listesi kodda kullanılmıyor: bu kolonları isteyen bir soru sonucu ham döndürür (İP-06) |
+| G-17 denetim izi | Kim, ne zaman, hangi soru, hangi SQL, kaç satır — değiştirilemez kayıt | **Kısmi** — her soru-sorgu çifti oturum açan gerçek kimlikle yazılıyor ve sonuç verisi saklanmıyor. Kayıt düz bir SQLite dosyasıdır; bütünlük zinciri (hash) henüz yok, yani "değiştirilemez" değil "ekleme-yalnız" doğru tanımdır (İP-09) |
+
+Yol haritası ve iş paketleri: `docs/is-hatti/v3/PLAN.md`.
+Açık maddelerin tam listesi: `docs/is-hatti/BACKLOG.md`.
+
+> **Pilot kurulum yapacaksanız:** yukarıdaki "Kısmi" ve "Uygulanmadı" satırları kapanana kadar
+> SorBI'yi yalnızca salt-okunur bir replika üzerinde ve kişisel veri içermeyen ya da
+> maskelenmiş bir görünüm üzerinden çalıştırın.

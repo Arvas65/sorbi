@@ -1,35 +1,242 @@
-"""SorBI değerlendirme koşucusu (G-11: execution accuracy).
+"""SorBI değerlendirme koşucusu (G-11: execution accuracy · G-12: gecikme).
 
 Her test sorusu tam pipeline'dan geçirilir (ön işleme + RAG + üretim + doğrulama),
 üretilen SQL ile gold SQL aynı veritabanında çalıştırılır ve SONUÇ KÜMELERİ
 karşılaştırılır (Zhong et al. 2020 yaklaşımı — SQL metni değil, sonuç eşitliği).
 
+A-1 (v3 SPEC): üretici (generator) artık modül düzeyinde bir global değil, dışarıdan
+verilen bir nesnedir. Böylece koşucu sahte bir üreticiyle, hiçbir LLM servisi olmadan
+test edilebilir — `tests/test_eval_runner.py`.
+
 Kullanım:
-    python eval/evaluate.py --db demo/hospital.db --testset eval/test_set_tr.jsonl
-    python eval/evaluate.py --mode api            # API modunu ölçmek için
+    python eval/evaluate.py --doctor                     # önce bunu koş: ortam hazır mı?
+    python eval/evaluate.py --db demo/hospital.db        # tam ölçüm
+    python eval/evaluate.py --db demo/hospital.db --limit 5    # hızlı deneme
+    python eval/evaluate.py --db demo/hospital.db --gold-only  # LLM'siz bütünlük kontrolü
 """
 import argparse
 import json
 import os
+import platform
+import shutil
+import statistics
+import subprocess
 import sys
 import time
+from datetime import date
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, KOK)
 
-from app import config, executor
-from app.preprocess import resolve_dates
-from app.validator import validate_and_transpile
 
+def _bagimlilik_hatasi(e: ModuleNotFoundError) -> None:
+    """Eksik bağımlılıkta ham yığın izi yerine ne yapılacağını söyler.
+
+    Ürünün kendi ilkesi (Nielsen 9: ne oldu + ne yapmalı) doğrulama katmanında
+    uygulanıyordu ama giriş noktalarında uygulanmıyordu; en sık karşılaşılan hata
+    olan 'sanal ortam etkin değil' durumu ham traceback olarak çıkıyordu.
+    """
+    win = platform.system() == "Windows"
+    venv_dizin = os.path.join(KOK, ".venv")
+    venv_var = os.path.isdir(venv_dizin)
+    venv_etkin = sys.prefix != sys.base_prefix
+
+    print(f"HATA: '{e.name}' paketi kurulu değil.\n", file=sys.stderr)
+    print(f"Kullanılan Python : {sys.executable}", file=sys.stderr)
+    print(f"Sanal ortam etkin : {'evet' if venv_etkin else 'HAYIR'}", file=sys.stderr)
+
+    if venv_var and not venv_etkin:
+        print("\nSebep büyük olasılıkla bu: depoda bir .venv var ama etkin değil.", file=sys.stderr)
+        print("Şu komutları sırayla çalıştırın:\n", file=sys.stderr)
+        if win:
+            print("  .venv\\Scripts\\activate", file=sys.stderr)
+        else:
+            print("  source .venv/bin/activate", file=sys.stderr)
+        print(f"  python {os.path.relpath(os.path.abspath(__file__), KOK)} --doctor", file=sys.stderr)
+        print("\nKomut isteminin başında (.venv) görmelisiniz.", file=sys.stderr)
+        print("Aktivasyondan sonra da aynı hatayı alırsanız ortam boştur:", file=sys.stderr)
+    elif not venv_var:
+        print("\nDepoda sanal ortam yok. Önce oluşturun:\n", file=sys.stderr)
+        print("  python -m venv .venv", file=sys.stderr)
+        print("  .venv\\Scripts\\activate" if win else "  source .venv/bin/activate", file=sys.stderr)
+        print("\nSonra bağımlılıkları kurun:", file=sys.stderr)
+    else:
+        print("\nSanal ortam etkin ama paket yok. Kurun:", file=sys.stderr)
+
+    ayrac = "\\" if win else "/"
+    hafif = f"pip install -r requirements{ayrac}core.txt"
+    tam = "pip install -r requirements.txt"
+    genislik = max(len(hafif), len(tam))
+    print(f"\n  {hafif:<{genislik}}   # ölçüm için yeterli (hafif, torch indirmez)", file=sys.stderr)
+    print(f"  {tam:<{genislik}}   # tam kurulum (RAG + arayüz dahil)", file=sys.stderr)
+    sys.exit(2)
+
+
+try:
+    from app import config, executor, guven  # noqa: E402
+    from app.preprocess import resolve_dates  # noqa: E402
+    from app.validator import validate_and_transpile  # noqa: E402
+    from eval.tarih_sabitle import olcum_gunu, sabitle  # noqa: E402
+except ModuleNotFoundError as _e:  # pragma: no cover - kurulum hatası yolu
+    _bagimlilik_hatasi(_e)
+
+HEDEF_ACCURACY = 0.80          # G-11
+HEDEF_GECIKME_P95_S = 10.0     # G-12
+
+
+# --------------------------------------------------------------------- yardımcılar
 
 def _normalize(rows: list) -> set:
     """Sonuç kümesini kıyaslanabilir hale getir: satır sırası önemsiz,
-    ondalıklar 2 haneye yuvarlı, None -> ''. """
+    ondalıklar 2 haneye yuvarlı, None -> ''."""
     out = set()
     for r in rows:
         norm = tuple("" if v is None else (round(v, 2) if isinstance(v, float) else v) for v in r)
         out.add(norm)
     return out
 
+
+def _commit_hash() -> str:
+    """Ölçüm damgası için commit. Git yoksa 'bilinmiyor' döner — ölçüm yine de koşar."""
+    git = shutil.which("git")
+    if not git:
+        return "bilinmiyor"
+    try:
+        out = subprocess.run([git, "rev-parse", "--short", "HEAD"],  # noqa: S603
+                             capture_output=True, text=True, timeout=5, check=False,
+                             cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        return out.stdout.strip() or "bilinmiyor"
+    except (OSError, subprocess.SubprocessError):
+        return "bilinmiyor"
+
+
+def _model_adi(mode: str) -> str:
+    return config.API_MODEL if mode == "api" else config.LOCAL_MODEL
+
+
+def yukle_testset(yol: str) -> list:
+    with open(yol, encoding="utf-8") as f:
+        return [json.loads(satir) for satir in f if satir.strip()]
+
+
+# --------------------------------------------------------------------- doctor
+
+def doctor(mode: str) -> int:
+    """Ölçümden ÖNCE koşulur: ortam hazır mı, hazır değilse tam olarak ne yapmalı.
+
+    Bu, v3 SPEC § 2'deki 'Ollama/Windows Vulkan' varsayımını doğrulayan adımdır.
+    Çıkış kodu 0 ise ölçüm koşulabilir.
+    """
+    print("SorBI ölçüm ortamı kontrolü")
+    print("=" * 60)
+    print(f"Python      : {platform.python_version()} ({platform.system()} {platform.machine()})")
+    print(f"Mod         : {mode}")
+    print(f"Model       : {_model_adi(mode)}")
+    sorun = []
+
+    if mode == "api":
+        if not config.API_KEY:
+            sorun.append("SORBI_API_KEY tanımlı değil — API modu çalışmaz.")
+        else:
+            print(f"API adresi  : {config.API_BASE}")
+        if sorun:
+            print("\n".join("  ! " + s for s in sorun))
+            return 1
+        print("\nAPI modu için ön kontrol tamam.")
+        return 0
+
+    import requests
+    print(f"Ollama      : {config.OLLAMA_URL}")
+
+    # 1) Servis ayakta mı
+    try:
+        r = requests.get(f"{config.OLLAMA_URL}/api/tags", timeout=10)
+        r.raise_for_status()
+        modeller = [m["name"] for m in r.json().get("models", [])]
+    except Exception as e:
+        print(f"\n  ! Ollama'ya ulaşılamadı: {type(e).__name__}: {str(e)[:120]}")
+        print("\n  Yapılacak:")
+        print("    1. Ollama kurulu değilse: https://ollama.com")
+        print("    2. Kuruluysa servisi başlatın:  ollama serve")
+        return 1
+    print(f"  + servis ayakta, {len(modeller)} model yüklü")
+
+    # 2) Hedef model var mı
+    hedef = config.LOCAL_MODEL
+    if not any(m == hedef or m.startswith(hedef.split(":")[0] + ":") for m in modeller):
+        print(f"\n  ! '{hedef}' yüklü değil. Yüklü olanlar: {', '.join(modeller) or '(yok)'}")
+        print(f"\n  Yapılacak:  ollama pull {hedef}")
+        return 1
+    print(f"  + model bulundu: {hedef}")
+
+    # 3) Gerçek bir üretim denemesi — Vulkan çökmesi burada yakalanır
+    from app import generator
+    print("\n  Tek soruluk deneme koşuluyor (bu adım Vulkan çökmesini yakalar)...")
+    t0 = time.time()
+    try:
+        sonuc = generator.generate_local(
+            "kaç doktor var",
+            "TABLO doktor\nKOLONLAR: doktor_id (INTEGER), ad (TEXT)")
+    except generator.LlmError as e:
+        gecen = time.time() - t0
+        print(f"  ! Model {gecen:.1f} sn sonra hata verdi:\n    {str(e)[:400]}")
+        print("\n  Bilinen saha sorunu — Windows + Ollama Vulkan arka ucu (0xe06d7363):")
+        print("    CPU'ya zorlayıp yeniden deneyin:")
+        print("      PowerShell:  $env:OLLAMA_LLM_LIBRARY='cpu_avx2'; ollama serve")
+        print("      cmd:         set OLLAMA_LLM_LIBRARY=cpu_avx2 && ollama serve")
+        print("    CPU'da da olmuyorsa daha küçük bir model deneyin:")
+        print("      ollama pull qwen2.5:1.5b-instruct")
+        print("      set SORBI_LOCAL_MODEL=qwen2.5:1.5b-instruct")
+        return 1
+    gecen = time.time() - t0
+    print(f"  + üretim çalıştı ({gecen:.1f} sn), guven={sonuc.get('guven')}")
+    print(f"    üretilen SQL: {(sonuc.get('sql') or '(boş)')[:80]}")
+
+    # Model GPU'da mı CPU'da mı? (saha kaydı 2026-08-16: iki saatlik teşhis)
+    # Ollama, GPU keşfi başarısız olursa sessizce CPU'ya düşer ve 6-10 kat yavaşlar.
+    # Hiçbir hata mesajı vermez; tek belirti sürelerdir. Artık kendimiz bakıyoruz.
+    hizlandirma = "bilinmiyor"
+    try:
+        ps = requests.get(f"{config.OLLAMA_URL}/api/ps", timeout=10).json()
+        yuklu = [m for m in ps.get("models", []) if m.get("name", "").startswith(hedef.split(":")[0])]
+        if yuklu:
+            toplam = yuklu[0].get("size", 0)
+            vram = yuklu[0].get("size_vram", 0)
+            if toplam and vram == 0:
+                hizlandirma = "cpu"
+                print("\n  ! Model TAMAMEN CPU'da koşuyor — GPU kullanılmıyor.")
+                print("    Beklenen etki: 6-10 kat yavaşlık. G-12 bu haliyle karşılanamaz.")
+                print("\n    Teşhis için Ollama'yı önplanda, ayrıntılı günlükle başlatın:")
+                print("      taskkill /F /IM \"ollama app.exe\" & taskkill /F /IM ollama.exe")
+                print("      set OLLAMA_VULKAN=0")
+                print("      set OLLAMA_DEBUG=1")
+                print("      ollama serve")
+                print("    'discovering available GPUs' satırından sonrasına bakın.")
+                print("    Bilinen sebep: Vulkan arka ucu açıkken GPU keşfi tümden")
+                print("    başarısız olabiliyor — CUDA'ya sıra gelmiyor (OLLAMA_VULKAN=0).")
+            elif vram and toplam:
+                hizlandirma = "gpu"
+                print(f"\n  + Model GPU'da: {100 * vram / toplam:.0f}% VRAM'de "
+                      f"({vram / 1e9:.1f} / {toplam / 1e9:.1f} GB)")
+    except Exception as e:
+        # Sessizce yutmuyoruz — BULGU-02'nin aynısını yazmak olurdu.
+        print(f"\n  ~ GPU/CPU durumu okunamadı ({type(e).__name__}); ölçüm yine de koşabilir.")
+
+    # Makine okunur tek satır — betikler çıktı metnini ayrıştırmasın.
+    print(f"\nDOCTOR_OZET hizlandirma={hizlandirma} model={hedef} "
+          f"deneme_sn={gecen:.1f} olcum_gunu={olcum_gunu()}")
+
+    if gecen > HEDEF_GECIKME_P95_S:
+        print(f"\n  ~ Uyarı: tek soru {gecen:.1f} sn sürdü, G-12 hedefi {HEDEF_GECIKME_P95_S:.0f} sn.")
+        print("    Ölçüm koşabilir ama G-12 muhtemelen karşılanmayacak; bu da bir bulgudur.")
+
+    print("\n" + "=" * 60)
+    print("ORTAM HAZIR — ölçümü koşabilirsiniz:")
+    print("  python eval/evaluate.py --db demo/hospital.db")
+    return 0
+
+
+# --------------------------------------------------------------------- gold-only
 
 def gold_check(items: list) -> int:
     """LLM'siz bütünlük kontrolü: her gold_sql doğrulanır ve çalıştırılır.
@@ -51,18 +258,37 @@ def gold_check(items: list) -> int:
     return hatali
 
 
-def run_one(item: dict, idx, mode: str) -> dict:
+# --------------------------------------------------------------------- tek soru
+
+def run_one(item: dict, idx, mode: str, gen_mod) -> dict:
+    """Tek bir test sorusunu uçtan uca koşar.
+
+    gen_mod: `generate(question, context, mode)` ve
+             `repair(question, context, bad_sql, error, mode)` sağlayan herhangi bir nesne.
+             Gerçek `app.generator` ya da testlerdeki sahte üretici olabilir (A-1).
+    """
     t0 = time.time()
     rec = {"id": item["id"], "soru": item["soru"], "zorluk": item["zorluk"],
-           "join": item["join"], "dogru": False, "asama": "", "sql": ""}
+           "join": item["join"], "dogru": False, "asama": "", "sql": "",
+           "onarim": False, "bayraklar": []}
 
-    annotated, _ = resolve_dates(item["soru"])
-    context, _ = idx.retrieve(item["soru"])
-    try:
-        gen, used = generator.generate(annotated, context, mode)
-    except Exception as e:
-        rec["asama"] = f"uretim_hatasi: {e}"
+    def bitir(asama: str) -> dict:
+        rec["asama"] = asama
+        rec["sure_s"] = round(time.time() - t0, 2)
         return rec
+
+    # İP-23: soruya yazılan mutlak tarih aralığı da ölçüm gününe sabitlenir.
+    # SQL'i sabitleyip istemi sabitlememek, modele Eylül'ü gösterip sorguyu
+    # Ağustos'ta koşturmak olurdu — kendi ölçümümüzü kendimiz bozardık.
+    _gun = olcum_gunu()
+    annotated, _ = resolve_dates(item["soru"], date.fromisoformat(_gun))
+    context, _ = idx.retrieve(item["soru"])
+
+    try:
+        gen, _used = gen_mod.generate(annotated, context, mode)
+    except Exception as e:
+        return bitir(f"uretim_hatasi: {type(e).__name__}: {str(e)[:100]}")
+
     rec["sql"] = gen.get("sql", "")
     rec["guven"] = gen.get("guven", 0)
 
@@ -70,86 +296,511 @@ def run_one(item: dict, idx, mode: str) -> dict:
                                known_tables=idx.known_tables,
                                known_columns=idx.known_columns)
     if not v.ok:  # tek öz-onarım denemesi (pipeline ile aynı davranış)
-        gen2, _ = generator.repair(annotated, context, rec["sql"], v.error, mode)
+        try:
+            gen2, _ = gen_mod.repair(annotated, context, rec["sql"], v.error, mode)
+        except Exception as e:
+            return bitir(f"onarim_hatasi: {type(e).__name__}: {str(e)[:100]}")
         rec["sql"] = gen2.get("sql", "")
         rec["onarim"] = True
         v = validate_and_transpile(rec["sql"], target_dialect=config.TARGET_DIALECT,
                                    known_tables=idx.known_tables,
                                    known_columns=idx.known_columns)
         if not v.ok:
-            rec["asama"] = f"dogrulama_reddi: {v.error[:120]}"
-            return rec
+            return bitir(f"dogrulama_reddi: {v.error[:120]}")
 
-    pred = executor.run(v.sql)
-    if pred.status == "CALISMA_HATASI" and not rec.get("onarim"):
-        gen3, _ = generator.repair(annotated, context, v.sql, pred.error, mode)
+    # İP-23: gold ve tahmin AYNI günü görmeli. Sabitleme yalnız çalıştırma
+    # anında yapılır; kullanıcıya/rapora giden SQL modelin yazdığı SQL'dir.
+    pred = executor.run(sabitle(v.sql, _gun))
+    if pred.status == "CALISMA_HATASI" and not rec["onarim"]:
+        try:
+            gen3, _ = gen_mod.repair(annotated, context, v.sql, pred.error, mode)
+        except Exception as e:
+            return bitir(f"onarim_hatasi: {type(e).__name__}: {str(e)[:100]}")
         rec["onarim"] = True
         v2 = validate_and_transpile(gen3.get("sql", ""), target_dialect=config.TARGET_DIALECT,
                                     known_tables=idx.known_tables,
                                     known_columns=idx.known_columns)
         if v2.ok:
             rec["sql"] = gen3["sql"]
-            pred = executor.run(v2.sql)
+            v = v2
+            pred = executor.run(sabitle(v2.sql, _gun))
     if pred.status != "BASARILI":
-        rec["asama"] = f"calisma_hatasi: {pred.status}"
-        return rec
+        return bitir(f"calisma_hatasi: {pred.status}")
 
-    gold = executor.run(item["gold_sql"])
+    gold = executor.run(sabitle(item["gold_sql"], _gun))
     if gold.status != "BASARILI":
-        rec["asama"] = f"GOLD_HATASI: {gold.error[:120]}"  # test setinin kendisi bozuksa görün
-        return rec
+        # Test setinin kendisi bozuksa görünsün — accuracy'ye hata olarak yazılmaz
+        return bitir(f"GOLD_HATASI: {gold.error[:120]}")
 
     rec["dogru"] = _normalize(pred.rows) == _normalize(gold.rows)
-    rec["asama"] = "esit" if rec["dogru"] else "sonuc_farkli"
-    rec["sure_s"] = round(time.time() - t0, 2)
-    return rec
+    # B-7 (İP-03c): güven kontrolü SONUCU değiştirmez, yalnız bayrak koyar.
+    # Doğruluğu bilinen 101 soruya karşı koştuğumuz için kontrolün kendi
+    # isabet/yanlış alarm oranını burada ölçebiliyoruz.
+    g = guven.degerlendir(
+        item["soru"], v.sql, pred.rowcount, kolon_sayisi=len(pred.columns or []),
+        satirlar=pred.rows,
+        bilinen_degerler=getattr(idx, "bilinen_degerler", None),
+        kolonlar={k for kolonlar in (getattr(idx, "known_columns", None) or {}).values()
+                  for k in kolonlar},
+        sozluk=(getattr(idx, "glossary", None) or {}).get("terms", {}))
+    rec["bayraklar"] = g.kodlar
+    return bitir("esit" if rec["dogru"] else "sonuc_farkli")
 
 
-def main():
-    ap = argparse.ArgumentParser()
+# --------------------------------------------------------------------- raporlama
+
+def ozetle(results: list) -> dict:
+    n = len(results)
+    dogru = sum(r["dogru"] for r in results)
+    sureler = sorted(r.get("sure_s", 0.0) for r in results)
+    ozet = {
+        "n": n,
+        "dogru": dogru,
+        "accuracy": dogru / n if n else 0.0,
+        "onarim_sayisi": sum(1 for r in results if r.get("onarim")),
+        "p50_s": statistics.median(sureler) if sureler else 0.0,
+        "p95_s": (sureler[min(len(sureler) - 1, int(round(0.95 * (len(sureler) - 1))))]
+                  if sureler else 0.0),
+        "en_yavas_5": sorted(results, key=lambda r: -r.get("sure_s", 0))[:5],
+        "kirilim": {},
+    }
+    for anahtar in ("zorluk", "join"):
+        ozet["kirilim"][anahtar] = {}
+        for val in sorted({r[anahtar] for r in results}, key=str):
+            alt = [r for r in results if r[anahtar] == val]
+            ozet["kirilim"][anahtar][str(val)] = {
+                "dogru": sum(r["dogru"] for r in alt), "toplam": len(alt)}
+    # Neden yanlış: aşama dağılımı
+    ozet["asama_dagilimi"] = {}
+    for r in results:
+        kok = r["asama"].split(":")[0]
+        ozet["asama_dagilimi"][kok] = ozet["asama_dagilimi"].get(kok, 0) + 1
+
+    # B-7: sessiz yanlış — sorgu çalıştı, sonuç döndü, cevap yanlış.
+    # Doğruluk yüzdesinden ayrı izlenir çünkü riski farklıdır: yakalanan hata
+    # kullanıcıyı uyarır, sessiz yanlış yanlış sayıyı yönetime taşır (B7 riski).
+    sessiz = sum(1 for r in results if r["asama"] == "sonuc_farkli")
+    yakalanan = sum(1 for r in results
+                    if r["asama"].startswith(("dogrulama_reddi", "calisma_hatasi",
+                                              "uretim_hatasi", "onarim_hatasi")))
+    yanlis = n - dogru
+    ozet["sessiz_yanlis"] = sessiz
+    ozet["yakalanan_hata"] = yakalanan
+    ozet["sessiz_yanlis_orani"] = sessiz / n if n else 0.0
+    # Yanlışların kaçta kaçı sessiz? Asıl izlenecek sayı bu.
+    ozet["yanlislarda_sessiz_pay"] = sessiz / yanlis if yanlis else 0.0
+    ozet["guven"] = guven_ozeti(results)
+    return ozet
+
+
+def guven_ozeti(results: list) -> dict:
+    """Güven kontrolünün KENDİ karnesi (İP-03c).
+
+    Yalnız çalışan sorgular sayılır: reddedilen ya da patlayan sorguda kullanıcı
+    zaten uyarılmıştır, bayrak koymanın bir değeri yoktur. Değerlendirme evreni
+    "temiz bir tablo dönen" cevaplardır — sessiz yanlışın yaşadığı yer.
+
+    İki sayı önemli ve ikisi ters yönde çekiyor:
+    - **yakalama**: sessiz yanlışların kaçı bayraklandı (yükselmesi iyi)
+    - **yanlis_alarm**: doğru cevapların kaçı bayraklandı (düşmesi iyi)
+
+    Sürekli bağıran bir uyarı, hiç uyarmayandan kötüdür: kullanıcı bir süre
+    sonra bayrağı okumayı bırakır ve sessiz yanlış geri döner. Bu yüzden
+    yanlış alarm oranı, yakalama oranıyla aynı raporda durur.
+    """
+    kapali = set(config.GUVEN_KAPALI)
+
+    def acik(r):
+        return [k for k in r.get("bayraklar", []) if k not in kapali]
+
+    calisan = [r for r in results if r["asama"] in ("esit", "sonuc_farkli")]
+    dogrular = [r for r in calisan if r["dogru"]]
+    yanlislar = [r for r in calisan if not r["dogru"]]
+    yakalanan = [r for r in yanlislar if acik(r)]
+    alarm = [r for r in dogrular if acik(r)]
+    ozet = {
+        "evren": len(calisan),
+        "sessiz_yanlis": len(yanlislar),
+        "yakalanan": len(yakalanan),
+        "yakalama_orani": len(yakalanan) / len(yanlislar) if yanlislar else 0.0,
+        "dogru_cevap": len(dogrular),
+        "yanlis_alarm": len(alarm),
+        "yanlis_alarm_orani": len(alarm) / len(dogrular) if dogrular else 0.0,
+        "kapali": sorted(kapali),
+        "kodlar": {},
+    }
+    # Bayraklananların içinde gerçekten yanlış olanların payı — kullanıcının
+    # uyarıyı ciddiye alıp almayacağını belirleyen sayı budur.
+    bayrakli = len(yakalanan) + len(alarm)
+    ozet["isabet"] = len(yakalanan) / bayrakli if bayrakli else 0.0
+    for kod in guven.TUM_KODLAR:
+        d = sum(1 for r in yanlislar if kod in r.get("bayraklar", []))
+        y = sum(1 for r in dogrular if kod in r.get("bayraklar", []))
+        if d or y:
+            ozet["kodlar"][kod] = {"yanlista": d, "dogruda": y,
+                                   "kapali": kod in kapali,
+                                   "isabet": d / (d + y) if (d + y) else 0.0}
+    return ozet
+
+
+def onceki_olcum(yol: str) -> dict | None:
+    """Bir önceki koşumun özetini okur (varsa). Üzerine yazmadan ÖNCE çağrılmalı.
+
+    Amaç: 'bu değişiklik işe yaradı mı' sorusunun cevabı raporun içinde dursun,
+    iki dosyayı yan yana açmak gerekmesin.
+    """
+    try:
+        with open(yol, encoding="utf-8") as f:
+            veri = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    ozet = veri.get("ozet")
+    if not ozet or "accuracy" not in ozet:
+        return None
+    return {"accuracy": ozet["accuracy"], "n": ozet.get("n"),
+            "olcum_gunu": (veri.get("damga") or {}).get("olcum_gunu"),
+            "p50_s": ozet.get("p50_s"), "p95_s": ozet.get("p95_s"),
+            "sessiz_yanlis": ozet.get("sessiz_yanlis"),
+            "damga": veri.get("damga", {})}
+
+
+def karsilastirilamaz(onceki: dict, ozet: dict, damga: dict) -> str | None:
+    """İki koşum aynı şeyi ölçmüyorsa sebebini söyler, yoksa None.
+
+    Sessizce karşılaştırmak en pahalı hatadır: cetvel değiştiği hâlde yüzde
+    farkı bir "iyileşme" ya da "gerileme" gibi okunur. Referans günü de bu
+    listeye 2026-08-20'de eklendi — 13 zamana bağlı soru yüzünden farklı
+    günlere sabitlenmiş iki koşum farklı bir seti ölçer.
+    """
+    if onceki.get("n") != ozet["n"]:
+        return (f"Önceki koşum {onceki.get('n')} soruluk, bu koşum {ozet['n']} soruluk "
+                "bir setle yapıldı. Test seti değiştiğinde yüzdeler aynı şeyi ölçmez.")
+    eski_gun = onceki.get("olcum_gunu")
+    yeni_gun = damga.get("olcum_gunu")
+    if eski_gun and yeni_gun and eski_gun != yeni_gun:
+        return (f"Önceki koşum `{eski_gun}` gününe, bu koşum `{yeni_gun}` gününe "
+                "sabitlenmiş. Test setinin 13 sorusu zamana bağlı; farklı referans "
+                "günü farklı bir cetvel demektir.")
+    if eski_gun is None and yeni_gun:
+        return ("Önceki koşumda referans günü kayıtlı değil (İP-23 öncesi). O koşum "
+                "gerçek takvimle alınmıştır ve zamana bağlı 13 soruda bu koşumla "
+                "aynı şeyi ölçmez.")
+    return None
+
+
+def _fark_satiri(yeni: float, eski: float | None, birim: str = "puan",
+                 yukselmesi_iyi: bool = True) -> str:
+    if eski is None:
+        return "—"
+    d = yeni - eski
+    if abs(d) < 1e-9:
+        return "değişmedi"
+    iyi = (d > 0) if yukselmesi_iyi else (d < 0)
+    return f"{'+' if d > 0 else ''}{d:.1f} {birim} ({'iyileşme' if iyi else 'gerileme'})"
+
+
+def _guven_bolumu(g: dict) -> str:
+    """Güven kontrolünün karnesi — rapora her koşumda girer.
+
+    Kontrolün kendisi ölçülmeden açılmaz: bir uyarı sistemi hem kaçırdığında
+    hem gereksiz bağırdığında zarar verir ve ikisi ters yönde çekilir.
+    """
+    if not g or not g.get("evren"):
+        return ""
+    satirlar = [
+        "\n## Güven kontrolü karnesi (B-7)\n",
+        "Aşağıdaki sayılar cevabın doğruluğunu değil, **uyarı sisteminin**",
+        "başarısını ölçer. Değerlendirme evreni yalnız temiz bir tablo dönen",
+        f"cevaplardır ({g['evren']} soru) — sessiz yanlışın yaşadığı yer.\n",
+        "| Ölçü | Değer | Yön |",
+        "|------|-------|-----|",
+        f"| Sessiz yanlışların yakalananı | **{g['yakalanan']}/{g['sessiz_yanlis']}** "
+        f"(%{100 * g['yakalama_orani']:.0f}) | yükselmeli |",
+        f"| Doğru cevaba konan gereksiz bayrak | {g['yanlis_alarm']}/{g['dogru_cevap']} "
+        f"(%{100 * g['yanlis_alarm_orani']:.0f}) | düşmeli |",
+        f"| Bayrak isabeti (bayraklının kaçı gerçekten yanlış) | "
+        f"**%{100 * g['isabet']:.0f}** | yükselmeli |\n",
+    ]
+    if g.get("kodlar"):
+        satirlar += [
+            "### Kontrol bazında\n",
+            "İsabeti düşük bir kontrol, koddan silinmeden `SORBI_GUVEN_KAPALI` ile",
+            "kapatılır; böylece sonraki ölçüm aynı çizelgeyle karşılaştırılabilir.\n",
+            "| Kontrol | Yanlış cevapta | Doğru cevapta | İsabet |",
+            "|---------|----------------|----------------|--------|",
+        ]
+        for kod, v in sorted(g["kodlar"].items(), key=lambda x: -x[1]["isabet"]):
+            ad = f"`{kod}`" + (" _(kapalı)_" if v.get("kapali") else "")
+            satirlar.append(f"| {ad} | {v['yanlista']} | {v['dogruda']} | "
+                            f"%{100 * v['isabet']:.0f} |")
+        satirlar.append("")
+    return "\n".join(satirlar) + "\n"
+
+
+def _damga(mode: str) -> dict:
+    return {
+        "tarih": date.today().isoformat(),
+        # Koşumun GERÇEK günü yukarıda; aşağıdaki ise sorguların gördüğü gün.
+        # İkisi ayrı: cetveli sabitlemenin anlamı bu (İP-23).
+        "olcum_gunu": olcum_gunu(),
+        "commit": _commit_hash(),
+        "model": _model_adi(mode),
+        "mod": mode,
+        "db_url": config.DB_URL,
+        "python": platform.python_version(),
+        "platform": f"{platform.system()} {platform.machine()}",
+        # Karşılaştırmayı geçersiz kılabilecek her ayar damgaya girer.
+        "temperature": config.TEMPERATURE,
+        "seed": config.SEED,
+        "num_ctx": config.NUM_CTX,
+        "ornek_degerler": config.ORNEK_DEGERLER,
+    }
+
+
+def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None) -> tuple[str, str]:
+    """docs/kanit/ altına iki markdown raporu yazar. Dönen: (accuracy yolu, gecikme yolu)."""
+    os.makedirs(klasor, exist_ok=True)
+    t = damga["tarih"]
+    # Dosya adı koşuma özgü olmalı. Saha kaydı (2026-08-16): bir günde altı ölçüm
+    # yapıldı ve her biri bir öncekinin ÜZERİNE yazdı — kanıt klasöründe yalnız
+    # sonuncusu kaldı. Kanıt dosyasının değeri, silinmemesindedir.
+    model_slug = "".join(c if c.isalnum() else "-" for c in damga.get("model", "model"))
+    ek = 1
+    while True:
+        sonek = f"{t}-{model_slug}-{ek:02d}"
+        acc_yol = os.path.join(klasor, f"accuracy-{sonek}.md")
+        gec_yol = os.path.join(klasor, f"gecikme-{sonek}.md")
+        if not os.path.exists(acc_yol):
+            break
+        ek += 1
+    basari = ozet["accuracy"] >= HEDEF_ACCURACY
+
+    def damga_blogu() -> str:
+        return ("| Alan | Değer |\n|------|-------|\n"
+                + "\n".join(f"| {k} | `{v}` |" for k, v in damga.items()))
+
+    karsilastirma = ""
+    _engel = karsilastirilamaz(onceki, ozet, damga) if onceki else None
+    if _engel:
+        karsilastirma = (
+            "## Önceki ölçümle karşılaştırma\n\n"
+            f"> **Karşılaştırma yapılmadı.** {_engel}\n>\n"
+            "> Aynı cetveli kullanan iki koşum arasında karşılaştırma otomatik döner.\n\n")
+    elif onceki:
+        onceki_damga = onceki.get("damga", {})
+        karsilastirma = (
+            "## Önceki ölçümle karşılaştırma\n\n"
+            f"Önceki koşum: `{onceki_damga.get('tarih', '?')}` · model `{onceki_damga.get('model', '?')}` "
+            f"· commit `{onceki_damga.get('commit', '?')}`\n\n"
+            "| Ölçü | Önceki | Şimdi | Fark |\n|------|--------|-------|------|\n"
+            f"| Accuracy | %{100 * onceki['accuracy']:.1f} | **%{100 * ozet['accuracy']:.1f}** | "
+            f"{_fark_satiri(100 * ozet['accuracy'], 100 * onceki['accuracy'])} |\n"
+            f"| p50 | {onceki['p50_s']:.1f} sn | {ozet['p50_s']:.1f} sn | "
+            f"{_fark_satiri(ozet['p50_s'], onceki['p50_s'], 'sn', yukselmesi_iyi=False)} |\n"
+            f"| p95 | {onceki['p95_s']:.1f} sn | {ozet['p95_s']:.1f} sn | "
+            f"{_fark_satiri(ozet['p95_s'], onceki['p95_s'], 'sn', yukselmesi_iyi=False)} |\n"
+            f"| Sessiz yanlış | {onceki['sessiz_yanlis']} | {ozet['sessiz_yanlis']} | "
+            f"{_fark_satiri(ozet['sessiz_yanlis'], onceki['sessiz_yanlis'], 'soru', yukselmesi_iyi=False)} |\n\n"
+            "> Karşılaştırma yalnız test seti ve ölçüm yöntemi aynıysa anlamlıdır.\n"
+            "> Model ya da soru sayısı değiştiyse bu tabloyu tek başına okuma.\n\n")
+
+    with open(acc_yol, "w", encoding="utf-8") as f:
+        f.write(f"""# Execution Accuracy Raporu — {t}
+
+**Gereksinim:** G-11 — 50 soruluk Türkçe test setinde en az %80 çalıştırma doğruluğu.
+
+## Sonuç
+
+## **{100 * ozet['accuracy']:.1f}%**  ({ozet['dogru']}/{ozet['n']})
+
+**Hedef ({100 * HEDEF_ACCURACY:.0f}%) {'KARŞILANDI' if basari else 'KARŞILANMADI'}.**
+{'' if basari else chr(10) + '> ADR-2 koşulu tetiklendi: RAG-only baseline hedefin altında. QLoRA fine-tune ' + chr(10) + '> kararı yeniden açılmalı ve yeni bir iş paketi olarak planlanmalıdır.' + chr(10)}
+Öz-onarım denemesi yapılan soru sayısı: {ozet['onarim_sayisi']}/{ozet['n']}
+
+## Sessiz yanlış (B-7)
+
+Yanlış cevabın iki türü vardır ve riskleri aynı değildir. **Yakalanan** hata kullanıcıyı
+uyarır. **Sessiz yanlış** hatasız bir tablo döndürür ve yanlış sayı yönetime taşınır —
+sistem analizi B7 bunu projenin en büyük riski olarak kaydetmişti.
+
+| Ölçü | Değer |
+|------|-------|
+| Sessiz yanlış (çalıştı, cevap yanlış) | **{ozet['sessiz_yanlis']}/{ozet['n']}** (%{100 * ozet['sessiz_yanlis_orani']:.1f}) |
+| Yakalanan hata (reddedildi / hata verdi) | {ozet['yakalanan_hata']}/{ozet['n']} |
+| **Yanlışların içinde sessiz olanların payı** | **%{100 * ozet['yanlislarda_sessiz_pay']:.1f}** |
+
+Son satır asıl izlenecek sayıdır: doğruluk yükselse bile bu pay yüksek kalıyorsa
+ürün güvenilir değildir.
+
+{karsilastirma}
+## Ölçüm damgası
+
+{damga_blogu()}
+
+## Zorluk kırılımı
+
+| Zorluk | Doğru / Toplam | Oran |
+|--------|----------------|------|
+""")
+        for k, v in ozet["kirilim"]["zorluk"].items():
+            f.write(f"| {k} | {v['dogru']}/{v['toplam']} | %{100 * v['dogru'] / v['toplam']:.0f} |\n")
+        f.write("\n## JOIN sayısı kırılımı\n\n| JOIN | Doğru / Toplam | Oran |\n|------|----------------|------|\n")
+        for k, v in ozet["kirilim"]["join"].items():
+            f.write(f"| {k} | {v['dogru']}/{v['toplam']} | %{100 * v['dogru'] / v['toplam']:.0f} |\n")
+        f.write("\n## Hangi aşamada kaybediliyor\n\n| Aşama | Soru sayısı |\n|-------|-------------|\n")
+        for k, v in sorted(ozet["asama_dagilimi"].items(), key=lambda x: -x[1]):
+            f.write(f"| `{k}` | {v} |\n")
+        f.write(_guven_bolumu(ozet.get("guven") or {}))
+        f.write("\nSoru bazlı ayrıntı: `eval/results.json`\n")
+
+    with open(gec_yol, "w", encoding="utf-8") as f:
+        p95_ok = ozet["p95_s"] <= HEDEF_GECIKME_P95_S
+        f.write(f"""# Gecikme Raporu — {t}
+
+**Gereksinim:** G-12 — tek soruya en geç 10 saniyede yanıt (yerel çıkarım modu).
+
+| Ölçü | Değer |
+|------|-------|
+| p50 | **{ozet['p50_s']:.2f} sn** |
+| p95 | **{ozet['p95_s']:.2f} sn** |
+| Hedef (p95) | {HEDEF_GECIKME_P95_S:.0f} sn — {'KARŞILANDI' if p95_ok else 'KARŞILANMADI'} |
+
+## Ölçüm damgası
+
+{damga_blogu()}
+
+## En yavaş 5 soru
+
+| Süre (sn) | Aşama | Soru |
+|-----------|-------|------|
+""")
+        for r in ozet["en_yavas_5"]:
+            f.write(f"| {r.get('sure_s', 0):.2f} | `{r['asama'].split(':')[0]}` | {r['soru'][:70]} |\n")
+        f.write("\n> Not: süreler uçtan uca ölçülür (ön işleme + RAG + üretim + doğrulama +\n"
+                "> yürütme). Gold SQL koşumu bu süreye dahildir ve ölçümü bir miktar\n"
+                "> yukarı çeker; üretim kullanımında o adım yoktur.\n")
+
+    _gunluge_ekle(klasor, ozet, damga, os.path.basename(acc_yol))
+    return acc_yol, gec_yol
+
+
+def _gunluge_ekle(klasor: str, ozet: dict, damga: dict, rapor_adi: str) -> None:
+    """Her koşum `OLCUMLER.md` dosyasına tek satır olarak eklenir — üzerine yazılmaz.
+
+    Bu dosya projenin ölçüm hafızasıdır: hangi yapılandırma hangi sayıyı verdi,
+    tarih sırasıyla. Tek tek raporlar ayrıntı, bu dosya seyir çizgisidir.
+    """
+    yol = os.path.join(klasor, "OLCUMLER.md")
+    yeni = not os.path.exists(yol)
+    with open(yol, "a", encoding="utf-8") as f:
+        if yeni:
+            f.write("# Ölçüm Günlüğü\n\n"
+                    "Her koşum bir satır. Bu dosyaya asla üzerine yazılmaz.\n"
+                    "Karşılaştırma yalnız aynı test seti ve aynı model için anlamlıdır.\n\n"
+                    "| Tarih | Model | Acc | Sessiz yanlış | p50 | p95 | temp | seed | num_ctx | değer örn. | commit | Rapor |\n"
+                    "|-------|-------|-----|---------------|-----|-----|------|------|---------|-----------|--------|-------|\n")
+        f.write(
+            f"| {damga.get('tarih')} | `{damga.get('model')}` "
+            f"| **%{100 * ozet['accuracy']:.0f}** ({ozet['dogru']}/{ozet['n']}) "
+            f"| {ozet['sessiz_yanlis']} (%{100 * ozet['yanlislarda_sessiz_pay']:.0f}) "
+            f"| {ozet['p50_s']:.1f} | {ozet['p95_s']:.1f} "
+            f"| {damga.get('temperature')} | {damga.get('seed')} | {damga.get('num_ctx')} "
+            f"| {'açık' if damga.get('ornek_degerler') else 'kapalı'} "
+            f"| `{damga.get('commit')}` | {rapor_adi} |\n")
+
+
+# --------------------------------------------------------------------- ana akış
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="SorBI execution accuracy ve gecikme ölçümü")
     ap.add_argument("--db", default=None)
     ap.add_argument("--testset", default=os.path.join(os.path.dirname(__file__), "test_set_tr.jsonl"))
     ap.add_argument("--mode", default=config.MODE, choices=["local", "api"])
     ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "results.json"))
+    ap.add_argument("--kanit-dir", default=os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "kanit"))
+    ap.add_argument("--limit", type=int, default=None, help="ilk N soruyla hızlı deneme")
     ap.add_argument("--gold-only", action="store_true",
                     help="LLM'siz mod: yalnızca gold_sql'lerin geçerliliğini ve çalıştığını kontrol et")
-    args = ap.parse_args()
+    ap.add_argument("--doctor", action="store_true",
+                    help="Ölçüm ortamı hazır mı? Hazır değilse ne yapılacağını yazar.")
+    args = ap.parse_args(argv)
+
     if args.db:
         config.DB_URL = f"sqlite:///{os.path.abspath(args.db)}"
 
-    items = [json.loads(l) for l in open(args.testset, encoding="utf-8") if l.strip()]
+    if args.doctor:
+        return doctor(args.mode)
+
+    # Üzerine yazmadan ÖNCE oku — yoksa karşılaştıracak bir şey kalmaz
+    onceki = onceki_olcum(args.out)
+
+    items = yukle_testset(args.testset)
+    if args.limit:
+        items = items[: args.limit]
 
     if args.gold_only:
-        sys.exit(1 if gold_check(items) else 0)
+        return 1 if gold_check(items) else 0
 
-    from app import generator            # LLM gerektiren yol — gecikmeli import
+    # LLM gerektiren yol — gecikmeli içe aktarım (gold-only ve doctor bunu istemez)
+    from app import generator as gen_mod
     from app.schema_rag import ContextIndex
-    globals()["generator"] = generator
     idx = ContextIndex(config.DB_URL)
+
     results = []
     for i, item in enumerate(items, 1):
-        rec = run_one(item, idx, args.mode)
+        # Tek bir sorunun beklenmeyen hatası 50 soruluk koşumu düşürmemeli.
+        # Saha kaydı (2026-08-16): 30. soruda çöken koşum 29 sorunun sonucunu götürdü.
+        try:
+            rec = run_one(item, idx, args.mode, gen_mod)
+        except Exception as e:  # noqa: BLE001
+            rec = {"id": item["id"], "soru": item["soru"], "zorluk": item["zorluk"],
+                   "join": item["join"], "dogru": False, "sql": "", "onarim": False,
+                   "sure_s": 0.0, "asama": f"kosucu_hatasi: {type(e).__name__}: {str(e)[:100]}"}
         results.append(rec)
         isaret = "+" if rec["dogru"] else "-"
-        print(f"[{i:02d}/{len(items)}] {isaret} ({rec['zorluk']}, {rec['join']} join) "
-              f"{item['soru'][:60]}  [{rec['asama']}]")
+        print(f"[{i:02d}/{len(items)}] {isaret} ({rec['zorluk']}, {rec['join']} join, "
+              f"{rec.get('sure_s', 0):.1f} sn) {item['soru'][:55]}  [{rec['asama']}]")
 
-    n = len(results)
-    dogru = sum(r["dogru"] for r in results)
+    ozet = ozetle(results)
+    damga = _damga(args.mode)
+
     print("\n" + "=" * 60)
-    print(f"EXECUTION ACCURACY: {dogru}/{n} = %{100 * dogru / n:.1f}   (hedef G-11: >=%80)")
+    print(f"EXECUTION ACCURACY: {ozet['dogru']}/{ozet['n']} = "
+          f"%{100 * ozet['accuracy']:.1f}   (hedef G-11: >=%{100 * HEDEF_ACCURACY:.0f})")
+    print(f"GECİKME: p50 {ozet['p50_s']:.2f} sn · p95 {ozet['p95_s']:.2f} sn   "
+          f"(hedef G-12: p95 <= {HEDEF_GECIKME_P95_S:.0f} sn)")
+    print(f"SESSİZ YANLIŞ: {ozet['sessiz_yanlis']}/{ozet['n']} "
+          f"(yanlışların %{100 * ozet['yanlislarda_sessiz_pay']:.0f}'i sessiz)  [B-7]")
+    g = ozet.get("guven") or {}
+    if g.get("evren"):
+        print(f"GÜVEN KONTROLÜ: sessiz yanlışın {g['yakalanan']}/{g['sessiz_yanlis']} "
+              f"(%{100 * g['yakalama_orani']:.0f}) bayraklandı; "
+              f"doğru cevapta {g['yanlis_alarm']}/{g['dogru_cevap']} gereksiz bayrak "
+              f"(%{100 * g['yanlis_alarm_orani']:.0f}); isabet %{100 * g['isabet']:.0f}")
+    _engel = karsilastirilamaz(onceki, ozet, damga) if onceki else None
+    if _engel:
+        print(f"ÖNCEKİ ÖLÇÜM: karşılaştırma yapılmadı — {_engel}")
+    elif onceki:
+        fark = 100 * (ozet["accuracy"] - onceki["accuracy"])
+        print(f"ÖNCEKİ ÖLÇÜM: %{100 * onceki['accuracy']:.1f} "
+              f"({onceki.get('damga', {}).get('tarih', '?')}) -> "
+              f"{'+' if fark >= 0 else ''}{fark:.1f} puan")
     for grup, anahtar in [("Zorluk", "zorluk"), ("JOIN sayısı", "join")]:
         print(f"\n{grup} kırılımı:")
-        for val in sorted({r[anahtar] for r in results}, key=str):
-            alt = [r for r in results if r[anahtar] == val]
-            d = sum(r["dogru"] for r in alt)
-            print(f"  {val}: {d}/{len(alt)} = %{100 * d / len(alt):.0f}")
+        for val, v in ozet["kirilim"][anahtar].items():
+            print(f"  {val}: {v['dogru']}/{v['toplam']} = %{100 * v['dogru'] / v['toplam']:.0f}")
 
     with open(args.out, "w", encoding="utf-8") as f:
-        json.dump({"accuracy": dogru / n, "mode": args.mode, "n": n,
+        json.dump({"damga": damga, "ozet": {k: v for k, v in ozet.items() if k != "en_yavas_5"},
                    "results": results}, f, ensure_ascii=False, indent=2)
-    print(f"\nAyrıntılı rapor: {args.out}")
+
+    acc_yol, gec_yol = rapor_yaz(ozet, damga, args.kanit_dir, onceki)
+    print(f"\nAyrıntılı rapor : {args.out}")
+    print(f"Kanıt raporları : {acc_yol}\n                  {gec_yol}")
+    print("\nBu iki dosyayı commit'leyin — v3 SPEC A-2/A-3'ün kabul kriteri budur.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

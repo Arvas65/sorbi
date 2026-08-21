@@ -20,6 +20,6 @@ training/output/
 .DS_Store
 Thumbs.db
 
-# Dinamik bağlantılar / profiller
-.sorbi/
-demo/satis.db
+# Kurulum yedekleri (kur.bat üretir) — depoya girmez, her makinenin kendi kopyası
+_yedek/
+*.tar.gz

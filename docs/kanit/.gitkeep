@@ -1,0 +1,3 @@
+Ölçüm raporları buraya yazılır: accuracy-<tarih>.md, gecikme-<tarih>.md,
+guvenlik-kapilari-<tarih>.md. Her rapor tarih + model + commit hash taşır.
+Henüz boş: ilk rapor İP-03 ile gelecek.

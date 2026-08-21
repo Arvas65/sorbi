@@ -1,0 +1,8 @@
+# Tüm katmanlar — sürüm çözümlemesinin tek kaynağı.
+# Katman dosyaları (core/rag/ui/dev/drivers) bu dosyaya kısıt olarak bağlıdır,
+# böylece hiçbir katman diğeriyle çelişen bir sürüm pinleyemez.
+-r core.in
+-r rag.in
+-r ui.in
+-r dev.in
+-r drivers.in

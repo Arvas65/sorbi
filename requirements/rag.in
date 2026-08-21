@@ -1,0 +1,4 @@
+# Vektör tabanlı bağlam (ADR-3). Kurulmazsa schema_rag anahtar-kelime moduna düşer.
+-r core.in
+chromadb>=0.5
+sentence-transformers>=3.0
