@@ -1,0 +1,46 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|##########| 199/199 [00:00<00:00, 5568.30it/s]
+====================================================================
+GÜVEN KONTROLÜ MUTASYON KARNESÝ (B-7, LLM'siz)
+====================================================================
+Ölçüm günü (sabit)      : 2026-07-23
+  + Zamana baðlý 13 sorunun tamamý dolu döndü
+Kapalý kontrol          : bicim_sayi, sema_ortusmez
+Doðru sorgu (gold)      : 101
+  gereksiz bayrak       : 1 (%1.0)   <- DÜÞMELÝ
+Bilinen yanlýþ (mutant) : 239   (sonucu deðiþmeyen 18 mutant sayýlmadý)
+  yakalanan             : 199 (%83.3)   <- YÜKSELMELÝ
+
+Mutasyon türüne göre yakalama:
+  bos_kume           96/101  %95
+  filtre_degeri      35/37   %95
+  toplama_takasi     26/30   %87
+  where_dus          32/54   %59
+  limit_dus          10/17   %59
+
+Kontrol bazýnda (yanlýþta kaç kez / doðruda kaç kez / isabet):
+  sifir_toplama            75 /    0  %100
+  bos_sonuc_filtreli       54 /    0  %100
+  bilinmeyen_deger         35 /    0  %100
+  atlanan_kolon             5 /    0  %100
+  filtresiz                33 /    0  %100
+  bicim_adet                4 /    0  %100
+  bos_sonuc                 1 /    0  %100
+  toplama_uyumsuz          29 /    1  %97
+
+Gereksiz bayrak örnekleri (doðru cevaba konan uyarý):
+  [76] EKG iþlemi kaç kez uygulanmýþ?                             toplama_uyumsuz
+
+Kaçýrýlan örnekler (yanlýþ cevap, uyarý yok):
+  [6] where_dus       Kadýn hastalarýn sayýsý nedir?
+  [10] where_dus       Randevusuna gelmeyen kaç kayýt var?
+  [12] where_dus       Geciken fatura sayýsý kaç?
+  [14] bos_kume        En yüksek fatura tutarý ne kadar?
+  [15] where_dus       Þu anda hastanede yatan hasta sayýsý kaç?
+  [21] where_dus       Geçen ay kaç randevu oluþturuldu?
+  [22] where_dus       Bu yýl kesilen faturalarýn toplam tutarý nedir?
+  [24] where_dus       Bugün bekleyen kaç randevu var?
+
+KARNE_OZET gun=2026-07-23 gold=101 alarm=1 mutant=239 yakalanan=199 zbos=0
+
+ÖNCEKÝ KARNE: birebir ayný.

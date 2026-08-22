@@ -1,0 +1,12 @@
+SorBI ölçüm ortamý kontrolü
+============================================================
+Python      : 3.13.12 (Windows AMD64)
+Mod         : local
+Model       : qwen2.5-coder:7b-instruct
+Ollama      : http://localhost:11434
+
+  ! Ollama'ya ulaþýlamadý: ConnectionError: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/tags (Caused by NewConnectionError
+
+  Yapýlacak:
+    1. Ollama kurulu deðilse: https://ollama.com
+    2. Kuruluysa servisi baþlatýn:  ollama serve

@@ -1,0 +1,23 @@
+SorBI ölçüm ortamý kontrolü
+============================================================
+Python      : 3.13.12 (Windows AMD64)
+Mod         : local
+Model       : qwen2.5-coder:7b-instruct
+Ollama      : http://localhost:11434
+  + servis ayakta, 6 model yüklü
+  + model bulundu: qwen2.5-coder:7b-instruct
+
+  Tek soruluk deneme koþuluyor (bu adým Vulkan çökmesini yakalar)...
+  + üretim çalýþtý (28.2 sn), guven=0.95
+    üretilen SQL: SELECT COUNT(*) FROM doktor
+
+  + Model GPU'da: 79% VRAM'de (4.3 / 5.4 GB)
+
+DOCTOR_OZET hizlandirma=gpu model=qwen2.5-coder:7b-instruct deneme_sn=28.2 olcum_gunu=2026-07-23
+
+  ~ Uyarý: tek soru 28.2 sn sürdü, G-12 hedefi 10 sn.
+    Ölçüm koþabilir ama G-12 muhtemelen karþýlanmayacak; bu da bir bulgudur.
+
+============================================================
+ORTAM HAZIR — ölçümü koþabilirsiniz:
+  python eval/evaluate.py --db demo/hospital.db
