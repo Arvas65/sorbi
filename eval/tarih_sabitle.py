@@ -62,6 +62,7 @@ def veri_gunu(db_url: str | None = None) -> str | None:
     url = db_url or config.DB_URL
     if url in _ONBELLEK:
         return _ONBELLEK[url]
+    eng = None
     try:
         eng = create_engine(url)
         insp = inspect(eng)
@@ -81,7 +82,6 @@ def veri_gunu(db_url: str | None = None) -> str | None:
                         sonlar.append(deger[:10])
                     elif hasattr(deger, "isoformat"):
                         sonlar.append(deger.isoformat()[:10])
-        eng.dispose()
         if not sonlar:
             return None
         en_son = max(sonlar)
@@ -92,6 +92,9 @@ def veri_gunu(db_url: str | None = None) -> str | None:
         return gun
     except Exception:      # noqa: BLE001 - türetme başarısızsa ölçüm yine koşar
         return None
+    finally:
+        if eng is not None:
+            eng.dispose()
 
 
 def olcum_gunu() -> str:

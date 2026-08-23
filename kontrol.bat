@@ -23,7 +23,10 @@ REM sayilar yazildiklari makinenin verisine aitti, baska bir kopyada
 REM "gerileme" gibi gorundu. Karne artik kendi gecmisiyle karsilastiriliyor
 REM (docs\kanit\KARNE-GECMIS.log). Burada yalnizca makineden bagimsiz
 REM olanlar duruyor.
-set BEKLENEN_TEST=320
+REM Test sayisi da BURADA TUTULMUYOR. Tutuluyordu ve 2026-08-22'de yanlis
+REM alarm uretti: ayni gun 6 test eklendi, sabit 320'de kalmisti. Sabit,
+REM yazildigi ana aittir. Artik kosum kendi gecmisiyle karsilastiriliyor
+REM (docs\kanit\TEST-GECMIS.log) ve yalnizca DUSUS uyari sayiliyor.
 set BEKLENEN_GOLD=101
 
 set HATA=0
@@ -108,12 +111,18 @@ if errorlevel 1 (
     echo       BASARISIZ - ayrinti log'da
     set HATA=1
 ) else (
-    findstr /C:"!BEKLENEN_TEST! passed" "!LOG!" >nul
-    if errorlevel 1 (
-        echo       gecti, ama test sayisi beklenenden farkli ^(beklenen !BEKLENEN_TEST!^)
-        set UYARI=1
+    set TEST_SATIR=
+    for /f "usebackq delims=" %%T in (`python eval\kosum_gecmisi.py "!LOG!" 2^>nul`) do set TEST_SATIR=%%T
+    if "!TEST_SATIR!"=="" (
+        echo       testler gecti
     ) else (
-        echo       !BEKLENEN_TEST! test gecti
+        echo       !TEST_SATIR!
+        >>"!LOG!" echo !TEST_SATIR!
+        echo !TEST_SATIR! | findstr /C:"durum=azaldi" >nul
+        if not errorlevel 1 (
+            echo       DIKKAT: test sayisi DUSTU - bir test dosyasi kaybolmus olabilir.
+            set UYARI=1
+        )
     )
 )
 echo.

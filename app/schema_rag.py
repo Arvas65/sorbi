@@ -99,6 +99,17 @@ def discover_schema(db_url: str | None = None, maskeli: set[str] | None = None
     yüzden kayboldu: model çok adımlı birleştirme yolunu kuramadı.
     """
     eng = create_engine(db_url or config.DB_URL)
+    try:
+        return _kesfet(eng, maskeli or set())
+    finally:
+        # try/finally: bir istisna dispose'u atlarsa havuzdaki bağlantı
+        # açık kalıyor ve Windows'ta her koşumda ResourceWarning basıyordu.
+        # Her koşumda görülen bir uyarı, okunmayan bir uyarıdır.
+        eng.dispose()
+
+
+def _kesfet(eng, maskeli: set[str]
+            ) -> tuple[list[dict], dict[str, set], list[dict], dict[str, set]]:
     insp = inspect(eng)
     docs = []
     columns: dict[str, set] = {}
@@ -132,7 +143,7 @@ def discover_schema(db_url: str | None = None, maskeli: set[str] | None = None
         # çıkmadan, tamamen yerelde koşan bir kontrol olduğu hâlde.
         #
         # G-16 maskeleme kuralı değişmedi: maskeli kolonlar hiç örneklenmez.
-        ornekler = ornek_degerler(eng, t, col_names, maskeli or set())
+        ornekler = ornek_degerler(eng, t, col_names, maskeli)
         for k, v in ornekler.items():
             # Kolon ADI ile anahtarlanır (tablo.kolon değil): üretilen SQL'de
             # kolon çoğu zaman takma adla nitelenir ve hangi tabloya ait
@@ -144,7 +155,6 @@ def discover_schema(db_url: str | None = None, maskeli: set[str] | None = None
             gövde += "\nDEĞERLER (bu kolonlarda GEÇEN TEK değerler bunlardır, "
             gövde += "filtrede aynen kullan):\n" + "\n".join(satirlar)
         docs.append({"id": f"table::{t}", "table": t, "text": gövde})
-    eng.dispose()
     return docs, columns, edges, degerler
 
 

@@ -96,6 +96,26 @@ def _normalize(rows: list) -> set:
     return out
 
 
+def _calisma_agaci_kirli() -> bool:
+    """İşlenmemiş değişiklik var mı?
+
+    Varsa damgadaki commit hash'i KOŞULAN KODU göstermez, son işlemeyi gösterir.
+    2026-08-16 ve 2026-08-22 koşumlarının ikisi de `ffe5db3` damgası taşıyor
+    ama aralarında altı haftalık iş var — çünkü hiçbiri işlenmemişti. Damga
+    sessizce yanlış söylüyordu.
+    """
+    git = shutil.which("git")
+    if not git:
+        return False
+    try:
+        out = subprocess.run([git, "status", "--porcelain"],  # noqa: S603
+                             capture_output=True, text=True, timeout=10, check=False,
+                             cwd=KOK)
+        return bool(out.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def _commit_hash() -> str:
     """Ölçüm damgası için commit. Git yoksa 'bilinmiyor' döner — ölçüm yine de koşar."""
     git = shutil.which("git")
@@ -142,7 +162,41 @@ def doctor(mode: str) -> int:
         if sorun:
             print("\n".join("  ! " + s for s in sorun))
             return 1
-        print("\nAPI modu için ön kontrol tamam.")
+        print(f"API adresi  : {config.API_BASE}")
+
+        # Yerel modda gerçek bir üretim denemesi yapıyoruz; API modunda
+        # yapmamak tutarsızdı. Anahtarın geçerli olduğunu, modelin var
+        # olduğunu ve kotanın açık olduğunu ancak çağırarak biliriz.
+        from app import generator
+        print("\n  Tek soruluk deneme koşuluyor...")
+        t0 = time.time()
+        try:
+            sonuc = generator.generate_api(
+                "kaç doktor var",
+                "TABLO doktor\nKOLONLAR: doktor_id (INTEGER), ad (TEXT)")
+        except generator.KotaHatasi as e:
+            print(f"  ! KOTA/HIZ SINIRI: {str(e)[:300]}")
+            print("\n    Ölçüm ALINMAMALI: kota aşımı doğruluk kaybı gibi görünür.")
+            print("    SORBI_API_BEKLEME ile soru başına bekleme koyun (ör. 4).")
+            return 1
+        except generator.LlmError as e:
+            print(f"  ! API hata verdi:\n    {str(e)[:400]}")
+            print("\n    Anahtar, adres ve model adını kontrol edin:")
+            print(f"      SORBI_API_BASE  = {config.API_BASE}")
+            print(f"      SORBI_API_MODEL = {config.API_MODEL}")
+            return 1
+        gecen = time.time() - t0
+        print(f"  + üretim çalıştı ({gecen:.1f} sn), guven={sonuc.get('guven')}")
+        print(f"    üretilen SQL: {sonuc.get('sql', '')[:120]}")
+        print("  + gizlilik: bağlamdaki DEĞERLER blokları dış servise gitmiyor "
+              "(mask_context)")
+        print(f"\nDOCTOR_OZET hizlandirma=api model={config.API_MODEL} "
+              f"deneme_sn={gecen:.1f} olcum_gunu={olcum_gunu()}")
+        if gecen > HEDEF_GECIKME_P95_S:
+            print(f"\n  ~ Uyarı: tek soru {gecen:.1f} sn sürdü, "
+                  f"G-12 hedefi {HEDEF_GECIKME_P95_S:.0f} sn.")
+        print("=" * 60)
+        print("ORTAM HAZIR — ölçümü koşabilirsiniz.")
         return 0
 
     import requests
@@ -287,6 +341,10 @@ def run_one(item: dict, idx, mode: str, gen_mod) -> dict:
     try:
         gen, _used = gen_mod.generate(annotated, context, mode)
     except Exception as e:
+        # Kota aşımı bir MODEL HATASI DEĞİLDİR; ayrı aşama adı alır ki
+        # özet onu doğruluk kaybı gibi saymasın.
+        if type(e).__name__ == "KotaHatasi":
+            return bitir(f"kota_asildi: {str(e)[:100]}")
         return bitir(f"uretim_hatasi: {type(e).__name__}: {str(e)[:100]}")
 
     rec["sql"] = gen.get("sql", "")
@@ -389,6 +447,13 @@ def ozetle(results: list) -> dict:
     ozet["sessiz_yanlis_orani"] = sessiz / n if n else 0.0
     # Yanlışların kaçta kaçı sessiz? Asıl izlenecek sayı bu.
     ozet["yanlislarda_sessiz_pay"] = sessiz / yanlis if yanlis else 0.0
+    # Kota aşımı ayrı tutulur. Ücretsiz katmanda 101 sorunun 40'ı 429 alsa
+    # doğruluk %20 görünür ve bu tamamen yanlış bir sonuçtur — model değil,
+    # kota ölçülmüş olur.
+    ozet["kota_asildi"] = sum(1 for r in results if r["asama"].startswith("kota_asildi"))
+    ozet["olculebilen"] = n - ozet["kota_asildi"]
+    ozet["accuracy_olculebilen"] = (dogru / ozet["olculebilen"]
+                                    if ozet["olculebilen"] else 0.0)
     ozet["guven"] = guven_ozeti(results)
     return ozet
 
@@ -485,6 +550,45 @@ def karsilastirilamaz(onceki: dict, ozet: dict, damga: dict) -> str | None:
         return ("Önceki koşumda referans günü kayıtlı değil (İP-23 öncesi). O koşum "
                 "gerçek takvimle alınmıştır ve zamana bağlı 13 soruda bu koşumla "
                 "aynı şeyi ölçmez.")
+
+    # Üretim ayarları. Bunlar `olcum-al` skill'inde "karşılaştırılabilirlik
+    # koşulu" diye yazılıydı ama KOD yalnız n ve referans günü denetliyordu —
+    # kuralın belgede olup kodda olmaması, ADR-1'in koda inmemesiyle aynı
+    # aile. 2026-08-22 koşumunda num_ctx 4096'dan 8192'ye çıkmıştı ve bu
+    # denetlenmiyordu; referans günü de değişmeseydi 6 puanlık fark gerçek
+    # bir gerileme gibi raporlanacaktı.
+    eski_damga = onceki.get("damga") or {}
+    for alan, aciklama in (
+        ("model", "farklı model"),
+        ("temperature", "farklı sıcaklık"),
+        ("seed", "farklı seed"),
+        ("num_ctx", "farklı bağlam penceresi"),
+        ("ornek_degerler", "farklı değer örnekleme ayarı"),
+    ):
+        eski, yeni = eski_damga.get(alan), damga.get(alan)
+        if eski is not None and yeni is not None and str(eski) != str(yeni):
+            return (f"Önceki koşum `{alan}={eski}`, bu koşum `{alan}={yeni}` ile "
+                    f"yapıldı ({aciklama}). Üretim ayarı değiştiğinde yüzdeler "
+                    "aynı şeyi ölçmez.")
+    return None
+
+
+def g12_kapsam_disi(damga: dict) -> str | None:
+    """G-12 yerel çıkarım modunu ölçer. Başka bir modda hüküm verilmez.
+
+    BULGU-03 (2026-08-22, nöbet): api modunda alınan p95 3,76 sn için rapor
+    "KARŞILANDI" yazdı. G-12'nin kendi metni ve v3 SPEC A-3 hedefi *yerel
+    çıkarım modu* içindir; api modunda ölçülen süre ağ gidiş-dönüşü + başka
+    birinin donanımıdır. `karsilastirilamaz()`'ın doğruluk tarafında
+    engellediği hatanın gecikme tarafındaki hâli: cetvel değişti, sayı aynı
+    kutuya yazıldı. Sayılar yerinde durur, yalnız HÜKÜM düşer.
+    """
+    mod = damga.get("mod")
+    if mod and mod != "local":
+        return (f"Bu koşum `mod={mod}` ile alındı. G-12 *yerel çıkarım modu* için "
+                "tanımlıdır; api modunda ölçülen süre SorBI'nin çıkarımını değil dış "
+                "servisin altyapısını ve ağ gecikmesini ölçer. Sayılar aşağıda durur, "
+                "hüküm verilmez.")
     return None
 
 
@@ -493,10 +597,25 @@ def _fark_satiri(yeni: float, eski: float | None, birim: str = "puan",
     if eski is None:
         return "—"
     d = yeni - eski
-    if abs(d) < 1e-9:
+    # Yuvarlama yalanı: 2,26 -> 2,29 farkı "+0.0 sn (gerileme)" diye yazılıyordu.
+    # Basılan hassasiyette sıfıra yuvarlanan bir fark hakkında hüküm verilmez.
+    if round(d, 1) == 0:
         return "değişmedi"
     iyi = (d > 0) if yukselmesi_iyi else (d < 0)
     return f"{'+' if d > 0 else ''}{d:.1f} {birim} ({'iyileşme' if iyi else 'gerileme'})"
+
+
+def _kota_uyarisi(ozet: dict) -> str:
+    """Kota aşımı olduysa manşet sayının NEYİ ölçtüğünü söyler."""
+    k = ozet.get("kota_asildi") or 0
+    if not k:
+        return ""
+    return (f"\n> **DİKKAT: {k} soru kota/hız sınırına takıldı ve hiç ölçülemedi.**\n"
+            f"> Yukarıdaki yüzde bu {k} soruyu YANLIŞ sayıyor; oysa cevaplanmadılar.\n"
+            f"> Ölçülebilen {ozet.get('olculebilen')} soru üzerinden doğruluk: "
+            f"**%{100 * ozet.get('accuracy_olculebilen', 0):.1f}**.\n"
+            "> Bu koşum bir model karşılaştırması için KULLANILAMAZ; kota\n"
+            "> aşımı giderilip tekrarlanmalıdır.\n")
 
 
 def _guven_bolumu(g: dict) -> str:
@@ -543,7 +662,8 @@ def _damga(mode: str) -> dict:
         # Koşumun GERÇEK günü yukarıda; aşağıdaki ise sorguların gördüğü gün.
         # İkisi ayrı: cetveli sabitlemenin anlamı bu (İP-23).
         "olcum_gunu": olcum_gunu(),
-        "commit": _commit_hash(),
+        "commit": _commit_hash() + (" (+islenmemis degisiklikler)"
+                                    if _calisma_agaci_kirli() else ""),
         "model": _model_adi(mode),
         "mod": mode,
         "db_url": config.DB_URL,
@@ -554,6 +674,13 @@ def _damga(mode: str) -> dict:
         "seed": config.SEED,
         "num_ctx": config.NUM_CTX,
         "ornek_degerler": config.ORNEK_DEGERLER,
+        # `seed` ve `num_ctx` yalnız Ollama isteğine konur; `generate_api` ikisini
+        # de göndermez. Damga onları yine de yazıyordu ve var olmayan bir
+        # belirlenim kontrolünü uygulanmış gibi gösteriyordu — ölçülmemiş şeyi
+        # iddia etme kuralının ihlali. 2026-08-23'te iki api koşumu aynı
+        # temperature/seed ile 7 soruda ayrıştı; sebebi buydu.
+        "belirlenim": ("seed+num_ctx uygulandı" if mode == "local"
+                       else f"seed/num_ctx UYGULANMADI — {mode} isteği bu alanları taşımıyor"),
     }
 
 
@@ -607,11 +734,12 @@ def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None) 
     with open(acc_yol, "w", encoding="utf-8") as f:
         f.write(f"""# Execution Accuracy Raporu — {t}
 
-**Gereksinim:** G-11 — 50 soruluk Türkçe test setinde en az %80 çalıştırma doğruluğu.
+**Gereksinim:** G-11 — {ozet['n']} soruluk Türkçe test setinde en az %80 çalıştırma doğruluğu.
 
 ## Sonuç
 
 ## **{100 * ozet['accuracy']:.1f}%**  ({ozet['dogru']}/{ozet['n']})
+{_kota_uyarisi(ozet)}
 
 **Hedef ({100 * HEDEF_ACCURACY:.0f}%) {'KARŞILANDI' if basari else 'KARŞILANMADI'}.**
 {'' if basari else chr(10) + '> ADR-2 koşulu tetiklendi: RAG-only baseline hedefin altında. QLoRA fine-tune ' + chr(10) + '> kararı yeniden açılmalı ve yeni bir iş paketi olarak planlanmalıdır.' + chr(10)}
@@ -655,6 +783,23 @@ Son satır asıl izlenecek sayıdır: doğruluk yükselse bile bu pay yüksek ka
 
     with open(gec_yol, "w", encoding="utf-8") as f:
         p95_ok = ozet["p95_s"] <= HEDEF_GECIKME_P95_S
+        _kapsam = g12_kapsam_disi(damga)
+        # "En geç 10 sn" bir en-kötü-durum ifadesidir; p95 onun vekilidir.
+        # Hedefi aşan tek tek sorular da yazılır, yoksa vekil aslını gizler.
+        _asanlar = [r for r in ozet.get("en_yavas_5") or []
+                    if r.get("sure_s", 0) > HEDEF_GECIKME_P95_S]
+        if _kapsam:
+            _hedef_satiri = f"| Hedef (p95) | {HEDEF_GECIKME_P95_S:.0f} sn — **KAPSAM DIŞI** |"
+            _hukum = f"\n> **G-12 hakkında hüküm verilmedi.** {_kapsam}\n"
+        else:
+            _hedef_satiri = (f"| Hedef (p95) | {HEDEF_GECIKME_P95_S:.0f} sn — "
+                             f"{'KARŞILANDI' if p95_ok else 'KARŞILANMADI'} |")
+            _hukum = ""
+        if _asanlar:
+            _hukum += (f"\n> Hedefi aşan soru: en az {len(_asanlar)} tanesi "
+                       f"{HEDEF_GECIKME_P95_S:.0f} sn üstünde (en yavaş "
+                       f"{max(r['sure_s'] for r in _asanlar):.2f} sn). p95 bir vekildir; "
+                       "gereksinimin metni \"en geç\" der.\n")
         f.write(f"""# Gecikme Raporu — {t}
 
 **Gereksinim:** G-12 — tek soruya en geç 10 saniyede yanıt (yerel çıkarım modu).
@@ -663,7 +808,8 @@ Son satır asıl izlenecek sayıdır: doğruluk yükselse bile bu pay yüksek ka
 |------|-------|
 | p50 | **{ozet['p50_s']:.2f} sn** |
 | p95 | **{ozet['p95_s']:.2f} sn** |
-| Hedef (p95) | {HEDEF_GECIKME_P95_S:.0f} sn — {'KARŞILANDI' if p95_ok else 'KARŞILANMADI'} |
+{_hedef_satiri}
+{_hukum}
 
 ## Ölçüm damgası
 
@@ -770,6 +916,11 @@ def main(argv=None) -> int:
           f"%{100 * ozet['accuracy']:.1f}   (hedef G-11: >=%{100 * HEDEF_ACCURACY:.0f})")
     print(f"GECİKME: p50 {ozet['p50_s']:.2f} sn · p95 {ozet['p95_s']:.2f} sn   "
           f"(hedef G-12: p95 <= {HEDEF_GECIKME_P95_S:.0f} sn)")
+    if ozet.get("kota_asildi"):
+        print(f"!! KOTA AŞIMI: {ozet['kota_asildi']}/{ozet['n']} soru hiç ölçülemedi. "
+              f"Ölçülebilen {ozet['olculebilen']} soruda doğruluk "
+              f"%{100 * ozet['accuracy_olculebilen']:.1f}. Bu koşum karşılaştırma "
+              "için kullanılamaz.")
     print(f"SESSİZ YANLIŞ: {ozet['sessiz_yanlis']}/{ozet['n']} "
           f"(yanlışların %{100 * ozet['yanlislarda_sessiz_pay']:.0f}'i sessiz)  [B-7]")
     g = ozet.get("guven") or {}

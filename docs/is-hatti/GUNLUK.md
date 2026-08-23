@@ -7,6 +7,140 @@ Biçim: ne yapıldı · ne ölçüldü · ne açık kaldı · sıradaki.
 
 ---
 
+## 2026-08-23 (gece nöbeti) — İkinci Gemini koşumu: fark yok, ama belirlenim de yok
+
+**Koşum:** bulut, planlı görev · **Ölçüm okundu mu:** EVET · **Push yetkisi: YOK** (git proxy 403, üçüncü gece)
+**Üç kapıya dokunulmadı.** Plan onayı, Review triyajı, Ship kararı İhsan'ındır.
+
+### Önce bir düzeltme: bu ilk Gemini koşumu değil
+
+Gece görevinin notu "bu gece ilk Gemini ölçümü" diyordu. Kanıt aksini söylüyor:
+`gece-20260822-0300.log` → *"Standart kosum zaten API modunda - ikinci Gemini
+olcumu atlandi."* Yani **08-22 koşumu da Gemini'ydi.** Bugünkü **ikinci** koşumdur.
+Bunun iyi tarafı var: ADR-5 taslağının Ö-4 önkoşulu ("tekrarlanmış olmalı — tek
+koşum gürültüdür") bu gece **kapandı.** G-12'nin ilk kez karşılanması da bu gece
+değil; zaten dün gece de p95 3,76 sn'ydi.
+
+### Ne ölçüldü — Gemini, api modu, 101 soru
+
+| | 08-22 | 08-23 | hüküm |
+|---|---|---|---|
+| Doğruluk | %71,3 (72/101) | **%70,3 (71/101)** · Wilson GA **%60,8–78,3** | G-11 (%80) **karşılanmadı**, hedef aralığın dışında |
+| p50 / p95 | 2,30 / 3,80 sn | **2,30 / 4,80 sn** | G-12 hakkında **hüküm yok** (aşağıya bak) |
+| En yavaş soru | 7,90 sn | **12,40 sn** | 1 soru 10 sn'nin üstünde |
+| Sessiz yanlış | 29 (%100) | **30/101 (%29,7), yanlışların %100'ü** | 0 soru reddedildi/patladı |
+| Güven karnesi (gerçek hata) | 5/29 (%17) | **6/30 (%20)** · GA %9,5–37,3 | beklenen >%50 idi |
+| Kota | aşılmadı | **aşılmadı** (çıkarımla) | ölçülmedi — aşağıya bak |
+
+**Eşli karşılaştırma (ilk kez yapıldı).** `kontrol-*.log` soru bazlı satır taşıyor;
+iki koşumun eşli tablosu oradan kuruldu. **7 soru cevap değiştirdi:** 4'ü
+doğru→yanlış (#28, #39, #40, #100), 3'ü yanlış→doğru (#11, #36, #85).
+**McNemar exact p = 1,000.** Net −1 soruluk fark **ölçülebilir bir fark değildir.**
+Raporun yazdığı "−1,0 puan (gerileme)" ifadesi yanlıştır.
+
+`olcum-denetci` hükmü: doğruluk sayısı **KOŞULLU GEÇERLİ**, "gerileme" nitelemesi
+**GEÇERSİZ** · gecikme G-12 kanıtı olarak **GEÇERSİZ** · tekrarlanabilirlik
+**GEÇERSİZ** · güven karnesi aritmetiği **GEÇERLİ**, mutasyon karnesinin öngörü
+değeri **GEÇERSİZ** · kota **KOŞULLU GEÇERLİ**.
+
+**Bulut klonunda LLM'siz denetim:** `git diff 884f8d9 HEAD -- ':(exclude)docs'`
+**boş** — iki gecedir depoya tek satır kod girmedi. Dolayısıyla dün gecenin denetim
+sonucu aynen geçerli; yeniden koşmak yeni bilgi vermezdi. Yeni yazılan 10 test
+yeşil, ruff temiz.
+
+### Bulgular
+
+**[BULGU-08] api modunda belirlenim diye bir şey yok — damga aksini söylüyor. (ağır)**
+`app/generator.py:160` `generate_api` isteği **yalnız `temperature` taşıyor;
+`seed` ve `num_ctx` hiç gönderilmiyor** (ikisi de sadece Ollama yolunda). Ama damga
+her koşumda `seed=42`, `num_ctx=8192` yazıyor. `config.py`'nin kendi yorumu
+"A/B karşılaştırması yapabilmek için üretim önce TEKRARLANABİLİR olmalı" diyor;
+api modunda o önkoşul **hiç sağlanmıyor** ve damga sağlanıyormuş gibi gösteriyor.
+7 soruluk oynama bunun ölçülmüş sonucudur. Bu, "ADR'yi yazıp koda indirmemek"
+hatasının aynası: **ayar koda inmiş ama isteğe inmemiş.**
+*Yapıldı:* damgaya `belirlenim` alanı eklendi; api modunda "UYGULANMADI" yazıyor (2 test).
+
+**[BULGU-09] Rapor gürültüyü "gerileme" diye etiketliyor. (orta — düzeltildi)**
+`_fark_satiri` sıfırdan farklı her deltayı mekanik olarak iyileşme/gerileme diye
+adlandırıyor. Kanıt raporun kendi içinde: p50 için **"+0.0 sn (gerileme)"**.
+Sıfır puanlık farka gerileme diyen bir etiketleyici, bir puanlık farka dediğinde de
+bir şey söylemiyor. *Yapıldı:* basılan hassasiyette sıfıra yuvarlanan fark artık
+"değişmedi" diyor (2 test). **Kalan iş:** doğruluk farkı için eşli McNemar kapısı —
+bu bir tasarım kararı, nöbet tek başına koymadı.
+
+**[BULGU-10] SPEC A-4'ün regresyon kapısı gürültü tabanının altında. (orta)**
+A-4 "3 puandan fazla düşerse CI kırmızı" diyor. Ölçülen api gürültü tabanı: koşumlar
+arası **7 ayrık soru**. Saf gürültüde |net| ≥ 3 soru çıkma olasılığı ≈ **%45**.
+Kapı, hiçbir şey olmadan ateşlenecek biçimde kalibre. Ya eşik ≥8 soruya çekilmeli
+ya da tek koşum yerine aynı gece n≥3 koşumun soru bazlı oy çokluğu alınmalı.
+
+**[BULGU-11] Dün gecenin BULGU-05'i yanlıştı — McNemar yapılabiliyor. (düzeltme)**
+"`eval/results.json` gitignore'da, bulut nöbeti iki koşumu hiç eşli kıyaslayamaz"
+denmişti. Soru bazlı veri **`docs/kanit/kontrol-*.log` içinde zaten var**
+(`[nn/101] +/- (zorluk, join, sn) soru [asama]`) ve bu gece oradan kuruldu.
+Damgalı bir `sonuclar-*.json` yine de iyi olur ama **engel değildi.**
+Kendi bulgumu düzeltiyorum: eksik olan veri değil, veriyi arama işiydi.
+
+**[BULGU-12] Test süiti kanıt günlüğünü kirletiyor. (küçük — İhsan'ın ağacında zaten düzeltilmiş)**
+`tests/test_guven_olcum.py` her koşuşunda `docs/kanit/KARNE-GECMIS.log` dosyasına
+`gold=0 alarm=0 mutant=0` diye sahte bir satır ekliyordu; depodaki `gold=3 mutant=3`
+satırı da böyle oluşmuş. Karne "kendi geçmişiyle" karşılaştırıldığı için bu satırlar
+referansa karışıyor — kanıt ekle-only olduğundan da temizlenemiyor.
+*Durum:* İhsan'ın işlenmemiş ağacında `tmp_path`'e yazacak biçimde düzeltilmiş;
+nöbetin yaması bu dosyaya dokunmadı.
+
+**[BULGU-13] `SON-GECE-KOSUMU.txt` bir koşum geriden geliyor — kök sebep. (küçük — düzeltildi)**
+Dün "bayat" denmişti (BULGU-07); sebebi bulundu. Dosya `gece-kosum.bat`'in **en
+sonunda**, `git add`'den *sonra* yazılıyor. Diskte doğru, **itilen kopya her zaman
+bir koşum geride.** Bulut nöbeti dün geceyi bu gece sanabilirdi.
+*Yapıldı:* yazma adımı `git add`'in önüne alındı.
+
+**[BULGU-14] Rapor başlığı "50 soruluk" diyor, ölçüm 101 soruluk. (küçük — düzeltildi)**
+`eval/evaluate.py` sabit metin. *Yapıldı:* `ozet['n']` yazıyor (1 test).
+
+**[BULGU-03 — düzeltmesi ikinci kez yazıldı ve bu kez uygulandı]**
+Gecikme raporu bu gece de "Hedef (p95) 10 sn — **KARŞILANDI**" yazdı. G-12'nin metni
+ve v3 SPEC A-3 hedefi *yerel çıkarım modu* içindir; bu koşum `mod=api`, yani ölçülen
+şey Google'ın altyapısı + İhsan'ın ağı. Ayrıca gereksinim "**en geç** 10 sn" der;
+1 soru 12,4 sn sürdü. **G-12 hâlâ ölçülmedi.** Geçerli tek sayı yerel koşumun
+p95'i: 21,2–32,8 sn.
+*Yapıldı:* `g12_kapsam_disi()` yazıldı — api modunda "KAPSAM DIŞI", hüküm
+yok, sayılar yerinde; hedefi aşan tek tek sorular da yazılıyor (5 test).
+
+**[BULGU-01/02 — üçüncü gece, hâlâ açık]**
+Kod hâlâ itilmedi. `mask_context` (İP-30), kota koruması (İP-31), İP-26'nın
+`karsilastirilamaz()` genişletmesi ve ~33 test **tek diskte.** Depodaki
+`karsilastirilamaz()` yalnız `n` ve `olcum_gunu` denetliyor; raporun ürettiği
+"farklı model" metni bu koddan çıkamaz — **koşan kod ile depodaki kod kanıtlanmış
+biçimde farklı.** İki koşumun damgası da `(+islenmemis degisiklikler)`; o iki yığının
+birbirinin aynı olduğunu gösteren hiçbir kanıt yok, dolayısıyla "iki gece aynı kodla
+koştu" **doğrulanmamış bir varsayımdır.**
+
+**[Düzeltme — "push yetkisi yok" teşhisi eksikti (2026-08-23, gündüz oturumu)]**
+Nöbet raporları üç gecedir push'un engellendiğini yazdı. Bu yalnız *bulut kabı* için
+doğru (git proxy 403). İhsan'ın makinesinde push çalışıyor: `gece-kosum.bat` her iki
+gece de `[gece] push tamam: olcum-otomatik dali` yazdı ve `origin/olcum-otomatik`
+güncel. Yani BULGU-01'in sebebi bir yetki sorunu değil — **kod hiç commit edilmemiş.**
+`git status` 16 değişmiş + 5 takip edilmeyen dosya gösteriyor. Teşhis yanlış yere
+bakıyordu; engel teknik değil, işlem.
+
+### Ne açık kaldı
+
+- **Kod hâlâ itilmedi (üçüncü gece).** Yama bu oturumda uygulandı ve testleri yeşil.
+- İP-03c Review triyajı (8 madde) + BULGU-01…14 triyajı — İhsan'ın kapısı
+- ADR-5 (İP-32) — Ship kapısı, karar bölümü boş
+- ADR-3/ADR-4 dosyaları hâlâ yok; `config.py` yorumu "ADR-1/5" diyor ama ADR-5 depoda yok
+- CI'ın ilk yeşil koşumu hâlâ doğrulanmadı
+
+### Sıradaki
+
+1. **İhsan:** `git add` + commit + push. Üç gecedir tek engel bu.
+2. **İhsan — Ship kapısı:** ADR-5. Ö-4/Ö-5 kapandı; Ö-1, Ö-2, Ö-3 push ile kapanır; Ö-6, Ö-7 açık.
+3. **Nöbette:** kod gelirse İP-30/31 doğrulanacak; mutant havuzunun gerçek hata
+   dağılımına göre yeniden ağırlıklandırılması için öneri hazırlanacak.
+
+---
+
 ## 2026-08-22 (akşam) — API modu hazırlandı, gizlilik açığı kapandı
 
 **Neden:** yerel 7B modelin p95'i 32,8 sn (G-12 hedefi 10 sn) ve İhsan'ı yordu.

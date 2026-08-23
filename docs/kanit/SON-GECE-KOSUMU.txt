@@ -1,1 +1,1 @@
-GECE_KOSUMU zaman=20260822-0300 cikis=0 log=docs\kanit\gece-20260822-0300.log
+GECE_KOSUMU zaman=20260823-0300 cikis=0 log=docs\kanit\gece-20260823-0300.log

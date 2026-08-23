@@ -1,3 +1,17 @@
 SorBI gece kosumu - 20260823-0300
 [gece] kontrol.bat tam /sessiz  
 [gece] kontrol.bat cikis kodu: 0 
+warning: in the working copy of 'docs/kanit/gece-20260822-0300.log', LF will be replaced by CRLF the next time Git touches it
+[ip-01-02-altyapi 8d5efb3] olcum: gece kosumu 20260823-0300 (otomatik)
+ 11 files changed, 602 insertions(+), 1 deletion(-)
+ create mode 100644 docs/kanit/accuracy-2026-08-23-gemini-3-7-flash-01.md
+ create mode 100644 docs/kanit/doctor-20260823-0300.txt
+ create mode 100644 docs/kanit/gece-20260823-0300.log
+ create mode 100644 docs/kanit/gecikme-2026-08-23-gemini-3-7-flash-01.md
+ create mode 100644 docs/kanit/karne-20260823-0300.txt
+ create mode 100644 docs/kanit/kontrol-20260823-0300.log
+[gece] kanit islendi 
+To https://github.com/Arvas65/sorbi.git
+   259f50a..8d5efb3  HEAD -> olcum-otomatik
+[gece] push tamam: olcum-otomatik dali 
+[gece] bitti 

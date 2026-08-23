@@ -25,9 +25,17 @@ NUM_PREDICT = int(os.getenv("SORBI_NUM_PREDICT", "400"))
 # için üretim önce TEKRARLANABİLİR olmalı.
 TEMPERATURE = float(os.getenv("SORBI_TEMPERATURE", "0"))
 SEED = int(os.getenv("SORBI_SEED", "42"))
-API_BASE = os.getenv("SORBI_API_BASE", "https://api.openai.com/v1")   # OpenAI-uyumlu
+# OpenAI-uyumlu uç nokta. Varsayılan Gemini'nin uyumluluk katmanı: İhsan'ın
+# ücretsiz anahtarı var ve yerel 7B modelin p95'i 32,8 sn (G-12 hedefi 10 sn).
+# Başka bir sağlayıcı için yalnız bu üç değişken değişir; kod aynı kalır.
+API_BASE = os.getenv("SORBI_API_BASE",
+                     "https://generativelanguage.googleapis.com/v1beta/openai")
 API_KEY = os.getenv("SORBI_API_KEY", "")
-API_MODEL = os.getenv("SORBI_API_MODEL", "gpt-4o-mini")
+API_MODEL = os.getenv("SORBI_API_MODEL", "gemini-3.7-flash")
+# Ücretsiz katmanda istekler arası bekleme (sn). Hız sınırına takılmamak
+# ölçümü kurtarır: 429 alan bir soru, modelin bilmediği bir soru gibi
+# görünür ve doğruluğu sahte biçimde düşürür.
+API_BEKLEME_S = float(os.getenv("SORBI_API_BEKLEME", "0"))
 
 # --- Veritabanı (G-14) ---
 DB_URL = os.getenv("SORBI_DB_URL", f"sqlite:///{os.path.join(HERE, 'demo', 'hospital.db')}")

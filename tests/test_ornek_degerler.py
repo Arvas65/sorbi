@@ -23,6 +23,22 @@ DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 DB_URL = f"sqlite:///{DB}"
 
 
+@pytest.fixture
+def bellek_motoru():
+    """Bellek-içi motor — ve KAPATILIR.
+
+    Bu iki test motoru açıp hiç kapatmıyordu; her koşumda iki
+    ResourceWarning bunlardan geliyordu. Uyarı, çöp toplayıcı ne zaman
+    çalışırsa o an koşan teste yazılıyordu; bu yüzden her koşumda BAŞKA
+    bir testin üstünde görünüyor ve kaynağı gizleniyordu.
+    """
+    eng = create_engine("sqlite:///:memory:")
+    try:
+        yield eng
+    finally:
+        eng.dispose()
+
+
 @pytest.fixture(scope="module")
 def idx():
     if not os.path.exists(DB):
@@ -80,8 +96,8 @@ def test_tek_ad_kolonu_olan_tablolar_orneklenir(idx):
     assert "MR" in _degerler(idx, "islem")["ad"]
 
 
-def test_kisisel_desenli_kolonlar_elenir():
-    eng = create_engine("sqlite:///:memory:")
+def test_kisisel_desenli_kolonlar_elenir(bellek_motoru):
+    eng = bellek_motoru
     with eng.connect() as c:
         c.exec_driver_sql("CREATE TABLE m (tckn TEXT, telefon TEXT, eposta TEXT, tur TEXT)")
         c.exec_driver_sql("INSERT INTO m VALUES ('123','555','a@b.c','A')")
@@ -90,8 +106,8 @@ def test_kisisel_desenli_kolonlar_elenir():
     assert set(bulunan) == {"tur"}
 
 
-def test_yuksek_kardinalite_ve_uzun_metin_elenir():
-    eng = create_engine("sqlite:///:memory:")
+def test_yuksek_kardinalite_ve_uzun_metin_elenir(bellek_motoru):
+    eng = bellek_motoru
     with eng.connect() as c:
         c.exec_driver_sql("CREATE TABLE t (kod TEXT, serbest TEXT)")
         for i in range(40):

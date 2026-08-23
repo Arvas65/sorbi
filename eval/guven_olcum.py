@@ -38,6 +38,9 @@ from eval.tarih_sabitle import olcum_gunu, sabitle, sayac  # noqa: E402
 
 TEST_SET = os.path.join(KOK, "eval", "test_set_tr.jsonl")
 
+# Tam setin soru sayısı. Bunun altındaki koşumlar geçmişe yazılmaz.
+TAM_SET = 101
+
 
 # ------------------------------------------------------------------ mutasyonlar
 
@@ -246,7 +249,17 @@ def _gecmise_yaz(r: dict) -> None:
     Sabit bir beklenen sayı tutmak yanlıştı: o sayı yazıldığı makinenin
     verisine aitti ve başka bir kopyada 'gerileme' gibi göründü. Doğru
     referans, AYNI MAKİNENİN bir önceki koşumudur.
+
+    KISMİ KOŞUM GEÇMİŞE GİRMEZ (bulgu 2026-08-22): `--limit 3` ile alınan
+    bir karne 101 soruluk karneyle karşılaştırılamaz — aynı "farklı cetvel"
+    kuralı. Test süiti içindeki 3 soruluk bir koşum gerçek günlüğe yazılmış
+    ve İhsan'ın makinesinde "ÖNCEKİ KARNE: FARKLI" diye yanlış alarm
+    üretmişti. Testin üretim kanıtını kirletmesi başlı başına bir kusurdur.
     """
+    if r["gold_sayisi"] < TAM_SET:
+        print(f"\nÖNCEKİ KARNE: kısmi koşum ({r['gold_sayisi']}/{TAM_SET} soru), "
+              "geçmişe yazılmadı.")
+        return
     satir = _ozet_satiri(r)
     onceki = None
     try:

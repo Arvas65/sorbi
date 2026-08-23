@@ -74,7 +74,7 @@ def test_uretilen_mutantlar_ayristirilabilir():
             assert sqlglot.parse_one(m, read="sqlite") is not None, fn.__name__
 
 
-def test_karne_ozet_satiri_makine_okunur(capsys, monkeypatch):
+def test_karne_ozet_satiri_makine_okunur(capsys, monkeypatch, tmp_path):
     """kontrol.bat bu satırı okuyor; biçimi bir sözleşmedir.
 
     Hizalanmış insan çıktısını ayrıştırmak kırılgandı: bir boşluk değişince
@@ -83,6 +83,9 @@ def test_karne_ozet_satiri_makine_okunur(capsys, monkeypatch):
     import sys
 
     from eval import guven_olcum
+    # Test, üretim kanıtına YAZMAZ. Yazmıştı ve İhsan'ın makinesinde
+    # yanlış alarm üretti (2026-08-22).
+    monkeypatch.setattr(guven_olcum, "GECMIS", str(tmp_path / "KARNE-GECMIS.log"))
     monkeypatch.setattr(sys, "argv", ["guven_olcum.py", "--limit", "3"])
     guven_olcum.main()
     satirlar = [s for s in capsys.readouterr().out.splitlines()
@@ -93,3 +96,25 @@ def test_karne_ozet_satiri_makine_okunur(capsys, monkeypatch):
     from eval.tarih_sabitle import olcum_gunu
     assert alanlar["gun"] == olcum_gunu()
     assert all(v.isdigit() for k, v in alanlar.items() if k != "gun")
+
+
+def test_kismi_kosum_gecmise_yazilmaz(tmp_path, monkeypatch, capsys):
+    """3 soruluk bir karne, 101 soruluk karneyle karşılaştırılamaz."""
+    from eval import guven_olcum
+    yol = tmp_path / "KARNE-GECMIS.log"
+    monkeypatch.setattr(guven_olcum, "GECMIS", str(yol))
+    guven_olcum._gecmise_yaz({"olcum_gunu": "2026-07-23", "gold_sayisi": 3,
+                              "yanlis_alarm": 0, "mutant_sayisi": 3,
+                              "yakalanan": 3, "zamana_bagli_bos": []})
+    assert not yol.exists()
+    assert "kısmi koşum" in capsys.readouterr().out
+
+
+def test_tam_kosum_gecmise_yazilir(tmp_path, monkeypatch):
+    from eval import guven_olcum
+    yol = tmp_path / "KARNE-GECMIS.log"
+    monkeypatch.setattr(guven_olcum, "GECMIS", str(yol))
+    guven_olcum._gecmise_yaz({"olcum_gunu": "2026-07-23", "gold_sayisi": 101,
+                              "yanlis_alarm": 1, "mutant_sayisi": 239,
+                              "yakalanan": 199, "zamana_bagli_bos": []})
+    assert "yakalanan=199" in yol.read_text(encoding="utf-8")

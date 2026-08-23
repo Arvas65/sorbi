@@ -33,7 +33,29 @@ call kontrol.bat tam /sessiz
 set SONUC=!errorlevel!
 echo [gece] kontrol.bat cikis kodu: !SONUC! >> "!NLOG!"
 
-REM ---- 3) sonucu git ile disari it ----
+REM  Son kosumun ozeti git add'DEN ONCE yazilir. Onceden en sonda yaziliyordu;
+REM  dosya diskte dogruydu ama commit'e giremedigi icin ITILEN kopya her zaman
+REM  bir kosum geriden geliyordu. Bulut nobeti bu yuzden dun geceyi bu gece
+REM  sanabilirdi. (BULGU-13, 2026-08-23)
+> "docs\kanit\SON-GECE-KOSUMU.txt" echo GECE_KOSUMU zaman=!STAMP! cikis=!SONUC! log=!NLOG!
+
+REM ---- 3) tek seferlik gece gorevleri ----
+REM  gece-gorev\ altindaki her .bat bir kez kosar ve bitti\ altina tasinir.
+REM  Boylece bir deney icin Ihsan'dan bir sey calistirmasi istenmez; is
+REM  gecenin sirasina birakilir.
+REM  SIRA ONEMLI: gorevler git adiminin ONUNDE kosar, yoksa urettikleri
+REM  kanit o gece itilmez ve bir gun gecikir.
+if exist "gece-gorev\*.bat" (
+    if not exist "gece-gorev\bitti" mkdir "gece-gorev\bitti"
+    for %%G in ("gece-gorev\*.bat") do (
+        echo [gece] gorev: %%~nxG >> "!NLOG!"
+        call "%%G" >>"!NLOG!" 2>&1
+        echo [gece] gorev cikis: !errorlevel! >> "!NLOG!"
+        move /Y "%%G" "gece-gorev\bitti\" >nul 2>&1
+    )
+)
+
+REM ---- 4) sonucu git ile disari it ----
 REM  DIKKAT: yalnizca kanit ve gunluk islenir. Ihsan'in yarim kalmis
 REM  calismasina dokunulmaz; master'a hic dokunulmaz. Itilen yer ayri
 REM  bir uzak dal: olcum-otomatik.
@@ -83,7 +105,7 @@ if errorlevel 1 (
 )
 
 :bitir
+
 echo [gece] bitti >> "!NLOG!"
-REM  Son kosumun ne zaman ve nasil bittigi tek satirda - acilis kapisi bunu okur.
-> "docs\kanit\SON-GECE-KOSUMU.txt" echo GECE_KOSUMU zaman=!STAMP! cikis=!SONUC! log=!NLOG!
+REM  Son kosumun ozeti yukarida (git add oncesi) yazildi; burada yeniden yazilmaz.
 endlocal & exit /b 0

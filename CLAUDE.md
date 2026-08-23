@@ -41,8 +41,10 @@ Bunlar tartışmaya açık değil; birini bozan bir değişiklik geri alınır.
 1. **Yalnız SELECT çalışır.** (G-18) Doğrulama katmanı istisna fırlatmaz,
    kapalı devre başarısız olur.
 2. **Üretilen SQL her zaman gösterilir.** (G-02) Hata durumunda bile.
-3. **Yerel mod varsayılandır**, veri makineden çıkmaz. API modunda kişisel
-   veri maskelenir (G-13/G-16).
+3. **Yerel mod varsayılandır**, veri makineden çıkmaz. API modunda dış servise
+   yalnız ŞEMA METAVERİSİ gider (tablo/kolon adları, ilişkiler, JOIN yolları);
+   gerçek kolon değerleri `generator.mask_context()` ile **koşulsuz** düşürülür.
+   Bu bir ayara bağlı değildir ve bağlanamaz (G-13/G-16, bulgu 2026-08-22).
 4. **Ölçülmemiş şey iddia edilmez.** Rapor yalnız çalıştırılmış sayıyı yazar.
 5. **Kanıt dosyalarının üzerine yazılmaz.** Her koşum damgalı ve benzersiz.
 6. **Hiçbir hata sessizce yutulmaz.** `except: pass` yasaktır — kendi
@@ -58,6 +60,7 @@ Bunlar tartışmaya açık değil; birini bozan bir değişiklik geri alınır.
 | `eval/evaluate.py` | 101 soruluk ölçüm koşucusu |
 | `eval/guven_olcum.py` | Güven kontrolünün mutasyon karnesi (LLM'siz) |
 | `eval/tarih_sabitle.py` | Ölçüm referans günü (İP-23) |
+| `gece-gorev/` | Tek seferlik gece görevleri — bir kez koşar, `bitti/`ye taşınır |
 | `kontrol.bat` | İhsan'ın tek komutla koşturduğu denetim |
 | `docs/is-hatti/` | İş hattı, SPEC, PLAN, BACKLOG, ADR'ler, İP kayıtları |
 | `docs/kanit/` | Ölçüm çıktıları — **ekle-only, silinmez** |
@@ -101,6 +104,9 @@ Tekrarlanmasın diye duruyorlar. Hepsi gerçekten oldu.
 | `except Exception: pass` yazmak | Kendi yasakladığımız kalıp |
 | Referans günü sabit kodlamak | Sabit, yazıldığı makinenin verisine aittir |
 | ADR'yi yazıp koda indirmemek | Karar `config.py`'de değilse karar değildir |
+| Beklenen değeri betiğe gömmek | Sabit, yazıldığı ana ve makineye aittir. Ölçüleni **kendi geçmişiyle** karşılaştır |
+| Kuralı skill'e yazıp koda yazmamak | `karsilastirilamaz()` belgelenen beş koşuldan ikisini denetliyordu |
+| Gizlilik vaadini docstring'e yazmak | `generate_api` "veri değeri asla gitmez" diyordu; bunu sağlayan tek şey bir ayarın hatırlanmasıydı |
 
 Ortak paydaları: **bir yerde geçerli olanın başka yerde de geçerli olduğunu
 varsaymak.** Çare hep aynı — varsayımı çalıştırılabilir bir kontrole çevir.
@@ -112,6 +118,8 @@ kur.bat                     paketi kur (yedek alır, kanıtı korur, otomatiği 
 kontrol.bat                 hızlı denetim (LLM'siz, ~1-2 dk)
 kontrol.bat tam             + 101 soruluk ölçüm (Ollama, ~25-40 dk)
 kontrol.bat tam /sessiz     aynısı, hiç tuşa basmadan (zamanlanmış koşum)
+gemini-kur.bat              API modu: anahtarı sorar, kurar, gerçekten dener
+gemini-kur.bat /kaldir      yerel moda dön
 otomatik.bat /durum         gece koşumu ne zaman, ne oldu
 otomatik.bat /simdi         gece koşumunu hemen bir kez çalıştır
 

@@ -70,7 +70,10 @@ if /i "%~1"=="/durum" (
 )
 
 set STAMP=
-for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd HH:mm" 2^>nul`) do set STAMP=%%i
+REM  Bosluklu bicim dizesi for/f icinde kayboluyor ve commit mesaji
+REM  "SorBI v3 calismasi -" diye tarihsiz cikiyordu. Altcizgi ile birlesik.
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH:mm" 2^>nul`) do set STAMP=%%i
+if "!STAMP!"=="" set STAMP=elle
 
 git add -A
 git diff --cached --quiet

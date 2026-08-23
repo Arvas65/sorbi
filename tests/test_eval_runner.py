@@ -385,3 +385,85 @@ def test_damga_olcum_gununu_tasir():
     d = evaluate._damga("local")
     assert d["olcum_gunu"] == olcum_gunu()
     assert len(d["olcum_gunu"]) == 10
+
+
+def test_uretim_ayari_degisince_karsilastirma_reddedilir():
+    """Kural `olcum-al` skill'inde yazılıydı ama kod yalnız n ve günü denetliyordu.
+
+    2026-08-22 koşumunda num_ctx 4096'dan 8192'ye çıkmıştı; referans günü de
+    değişmeseydi 6 puanlık fark gerçek bir gerileme gibi raporlanacaktı.
+    """
+    ortak = {"olcum_gunu": "2026-07-23", "model": "qwen2.5-coder:7b-instruct",
+             "temperature": 0.0, "seed": 42, "num_ctx": 4096, "ornek_degerler": True}
+    onceki = {"accuracy": 0.62, "n": 101, "olcum_gunu": "2026-07-23", "damga": ortak}
+    ozet = {"accuracy": 0.56, "n": 101}
+    yeni_damga = {**ortak, "num_ctx": 8192}
+    engel = evaluate.karsilastirilamaz(onceki, ozet, yeni_damga)
+    assert engel and "num_ctx" in engel
+
+
+def test_model_degisince_karsilastirma_reddedilir():
+    ortak = {"olcum_gunu": "2026-07-23", "model": "llama3.2:3b", "num_ctx": 8192}
+    onceki = {"accuracy": 0.38, "n": 101, "olcum_gunu": "2026-07-23", "damga": ortak}
+    ozet = {"accuracy": 0.62, "n": 101}
+    engel = evaluate.karsilastirilamaz(
+        onceki, ozet, {**ortak, "model": "qwen2.5-coder:7b-instruct"})
+    assert engel and "model" in engel
+
+
+def test_tum_ayarlar_ayniysa_karsilastirma_yapilir():
+    ortak = {"olcum_gunu": "2026-07-23", "model": "qwen2.5-coder:7b-instruct",
+             "temperature": 0.0, "seed": 42, "num_ctx": 8192, "ornek_degerler": True}
+    onceki = {"accuracy": 0.56, "n": 101, "olcum_gunu": "2026-07-23", "damga": ortak}
+    assert evaluate.karsilastirilamaz(onceki, {"accuracy": 0.60, "n": 101}, ortak) is None
+
+
+def test_eski_kosumda_damga_yoksa_ayar_denetimi_engel_olmaz():
+    """İP-23 öncesi koşumlar zaten referans günü yüzünden reddediliyor;
+    eksik damga ayrı bir engel üretmemeli."""
+    onceki = {"accuracy": 0.62, "n": 101, "olcum_gunu": "2026-07-23"}
+    ortak = {"olcum_gunu": "2026-07-23", "num_ctx": 8192}
+    assert evaluate.karsilastirilamaz(onceki, {"accuracy": 0.6, "n": 101}, ortak) is None
+
+
+def test_kirli_calisma_agaci_damgada_gorunur(monkeypatch):
+    """Commit hash'i koşulan kodu göstermiyorsa damga bunu söylemeli."""
+    monkeypatch.setattr(evaluate, "_calisma_agaci_kirli", lambda: True)
+    monkeypatch.setattr(evaluate, "_commit_hash", lambda: "abc1234")
+    assert "islenmemis" in evaluate._damga("local")["commit"]
+
+
+def test_temiz_agacta_damga_sade_kalir(monkeypatch):
+    monkeypatch.setattr(evaluate, "_calisma_agaci_kirli", lambda: False)
+    monkeypatch.setattr(evaluate, "_commit_hash", lambda: "abc1234")
+    assert evaluate._damga("local")["commit"] == "abc1234"
+
+
+# ------------------------------------------------- kota aşımı ayrı sayılır
+
+def test_kota_asimi_dogruluk_kaybi_gibi_sayilmaz():
+    """Ücretsiz katmanda 429 alan sorular cevaplanmadı — yanlış cevaplanmadı."""
+    o = evaluate.ozetle(
+        [_r(True, "esit")] * 30
+        + [_r(False, "sonuc_farkli")] * 10
+        + [_r(False, "kota_asildi: rate limit")] * 60)
+    assert o["kota_asildi"] == 60
+    assert o["olculebilen"] == 40
+    assert o["accuracy"] == pytest.approx(0.30)              # ham sayı
+    assert o["accuracy_olculebilen"] == pytest.approx(0.75)  # ölçülebilen üzerinden
+
+
+def test_kota_yoksa_iki_sayi_ayni():
+    o = evaluate.ozetle([_r(True, "esit")] * 3 + [_r(False, "sonuc_farkli")])
+    assert o["kota_asildi"] == 0
+    assert o["accuracy"] == o["accuracy_olculebilen"]
+
+
+def test_kota_uyarisi_raporda_gorunur():
+    o = evaluate.ozetle([_r(True, "esit")] * 2 + [_r(False, "kota_asildi: x")] * 2)
+    metin = evaluate._kota_uyarisi(o)
+    assert "2 soru kota" in metin and "KULLANILAMAZ" in metin
+
+
+def test_kota_yokken_uyari_basilmaz():
+    assert evaluate._kota_uyarisi(evaluate.ozetle([_r(True, "esit")])) == ""
