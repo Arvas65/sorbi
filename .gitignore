@@ -23,3 +23,16 @@ Thumbs.db
 # Kurulum yedekleri (kur.bat üretir) — depoya girmez, her makinenin kendi kopyası
 _yedek/
 *.tar.gz
+
+# Kimlik deposu — DEPOYA GİRMEZ. (BULGU-15, 2026-08-23)
+# `.sorbi/users.json` admin salt+hash taşıyor ve 884f8d9'de itilmiş durumda.
+# Takipten çıkarmak yeni koşumları korur; GEÇMİŞTEKİ kopya için parola
+# döndürülmeli (hash uzak depoda duruyor).
+.sorbi/
+
+# Ölçüm/araç çıktıları
+.coverage
+.pytest_cache/
+.ruff_cache/
+*.db-journal
+yok-boyle-bir-dosya-yok.db

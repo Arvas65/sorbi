@@ -1,0 +1,20 @@
+# Satır sonları. Depo LF ile saklıyordu, disk CRLF üretiyordu; sonuç 656 satırlık
+# sahte diff (kur.bat 428, otomatik.bat 228 — hiçbiri gerçek değişiklik değil).
+# .bat için CRLF yalnız bir tercih değil: cmd.exe LF ile yazılmış bir betikte
+# goto/label davranışını bozabiliyor. Windows betikleri her zaman CRLF çıksın.
+* text=auto
+
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+*.py   text eol=lf
+*.sh   text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+
+# Kanıt dosyaları olduğu gibi kalır.
+docs/kanit/**  -text
