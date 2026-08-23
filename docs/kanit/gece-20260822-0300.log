@@ -7,3 +7,34 @@ SorBI gece kosumu - 20260822-0300
 [gece] gorev: 02-gemini-olcumu.bat 
 [deney] Standart kosum zaten API modunda - ikinci Gemini olcumu atlandi.
 [gece] gorev cikis: 0 
+warning: in the working copy of 'docs/is-hatti/GUNLUK.md', LF will be replaced by CRLF the next time Git touches it
+[ip-01-02-altyapi 259f50a] olcum: gece kosumu 20260822-0300 (otomatik)
+ 22 files changed, 1874 insertions(+)
+ create mode 100644 docs/kanit/TEST-GECMIS.log
+ create mode 100644 docs/kanit/accuracy-2026-08-22-gemini-3-7-flash-01.md
+ create mode 100644 docs/kanit/doctor-20260822-0018.txt
+ create mode 100644 docs/kanit/doctor-20260822-0036.txt
+ create mode 100644 docs/kanit/doctor-20260822-0042.txt
+ create mode 100644 docs/kanit/doctor-20260822-0048.txt
+ create mode 100644 docs/kanit/doctor-20260822-0300.txt
+ create mode 100644 docs/kanit/gece-20260822-0300.log
+ create mode 100644 docs/kanit/gecikme-2026-08-22-gemini-3-7-flash-01.md
+ create mode 100644 docs/kanit/karne-20260822-0018.txt
+ create mode 100644 docs/kanit/karne-20260822-0036.txt
+ create mode 100644 docs/kanit/karne-20260822-0042.txt
+ create mode 100644 docs/kanit/karne-20260822-0048.txt
+ create mode 100644 docs/kanit/karne-20260822-0300.txt
+ create mode 100644 docs/kanit/kontrol-20260822-0018.log
+ create mode 100644 docs/kanit/kontrol-20260822-0036.log
+ create mode 100644 docs/kanit/kontrol-20260822-0042.log
+ create mode 100644 docs/kanit/kontrol-20260822-0048.log
+ create mode 100644 docs/kanit/kontrol-20260822-0300.log
+[gece] kanit islendi 
+remote: 
+remote: Create a pull request for 'olcum-otomatik' on GitHub by visiting:        
+remote:      https://github.com/Arvas65/sorbi/pull/new/olcum-otomatik        
+remote: 
+To https://github.com/Arvas65/sorbi.git
+ * [new branch]      HEAD -> olcum-otomatik
+[gece] push tamam: olcum-otomatik dali 
+[gece] bitti 
