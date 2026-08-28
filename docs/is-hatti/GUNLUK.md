@@ -7,6 +7,123 @@ Biçim: ne yapıldı · ne ölçüldü · ne açık kaldı · sıradaki.
 
 ---
 
+## 2026-08-23 (gündüz) — İP-33: triyaj uygulandı, karne dürüstleşti
+
+**Kim:** bulut oturumu · **Kapı:** yok — Review triyajı İhsan'da tamamlandı,
+bu giriş onun kararlarının uygulanmasıdır.
+
+### Karar
+
+İhsan 24 maddelik triyajı verdi: 15'i zaten kapanmıştı, **açık 16 maddenin
+tamamı DÜZELT.** Nöbetin önerdiği 6 KABUL/SONRA da DÜZELT'e çevrildi.
+
+### Yapıldı
+
+**Süit artık sessizce atlamıyor (BULGU-N4).** `tests/conftest.py` içe aktarma
+anında tohumluyor; `skipif` ve koşullu `pytest.skip` üç dosyadan silindi.
+`demo/*.db` silinmiş hâlde süit: **415 geçti, 0 atlandı.** Öncesinde çoğu test
+atlanıyor ve pytest yine çıkış kodu 0 veriyordu — kovaladığımız sessiz yanlışın
+cetveldeki hâli. `test_suit_dururlugu.py` geri gelmesini kilitliyor.
+
+> 08-22 nöbeti bunu "kapandı" diye yazmıştı. Değildi: o yama kaybolan
+> yamalardan biriydi. Kapandığı SÖYLENEN bir bulguyu depoya karşı
+> doğrulamamak, bu turda iki kez karşımıza çıktı.
+
+**Karne dürüstleşti (B7R-08 / BULGU-04).** Mutant havuzuna gerçek model
+hatasına benzeyen dört aile eklendi — `deger_takasi` (filtreyi AYNI kolonun
+BAŞKA geçerli değeriyle değiştir), `karsilastirma`, `distinct_dus`,
+`join_ici_disi`. Havuz 239 → 306. Yakalama **%83,3'ten %72,5'e düştü** ve
+düşüş iyi haberdir: %83'ün bir kısmı havuzun kolaylığından geliyordu.
+
+Sonra iki yeni kontrolle yakalayarak geri çıkıldı:
+
+```
+başlangıç      199/239   %83,3    kolay havuz
+B7R-03/06      212/239   %88,7    aynı havuz
+havuz büyüdü   222/306   %72,5    DÜRÜST havuz
+yeni kontrol   245/306   %80,1
+```
+
+Gereksiz bayrak **baştan sona 1/101 (%1,0)** — hiçbir düzeltme yanlış alarmla
+ödenmedi.
+
+**Yeni kontroller.** `deger_uyumsuz`: soru bir değerden söz ediyor, sorgu
+başka bir geçerli değerle filtreliyor — sonuç dolu, tablo makul, sayı yanlış
+(gerçek model hatasının şekli). `distinct_eksik`: "kaç FARKLI hasta"
+sorusuna `COUNT(*)`. Sırasıyla %21 → %74 ve %0 → %36.
+
+**Regresyon kapısı gürültünün dışına çıktı (BULGU-09/10).** SPEC A-4'ün
+"3 puan" eşiği ölçülen gürültü tabanının altındaydı: saf gürültüde ateşleme
+olasılığı ≈ %45. Kapı artık eşli McNemar kararına bağlı —
+`bozulan - düzelen >= 3` **ve** `p < 0,05`. Ölçülen gerçek gürültü (4 bozuldu,
+3 düzeldi) kapıyı açmıyor; 12/0 açıyor. Testlerle kilitli.
+
+**Belirlenim (BULGU-08).** `seed` artık api isteğine gerçekten konuyor ve
+damga metni **koddan türetiliyor** — isteğin alan listesi değişirse damga
+kendiliğinden düzelir. Ama damga hüküm vermiyor: göndermek uygulanmış olmak
+değildir, sunucu seed'i yok sayabilir. Bunu ancak tekrarlanmış koşum gösterir.
+
+**[BULGU-17] `seed` eklemek API'yi kırdı — ve ADR-5'e kanıt oldu.**
+BULGU-08 düzeltmesi (`seed` isteğe konuyor) itilmeden önce `kontrol.bat` ile
+denendi ve uç nokta isteği **tümden reddetti:**
+
+```
+HTTP 400  Invalid JSON payload received.
+          Unknown name "seed": Cannot find field.
+```
+
+Gemini'nin OpenAI uyumluluk katmanında `seed` diye bir alan yok. Yani api
+modunda belirlenim "doğrulanmamış" değil — **bu sağlayıcıda mümkün değil.**
+*Yapıldı:* `seed` gönderiliyor; uç nokta tanımıyorsa bir kez alansız tekrar
+deneniyor ve bu oturum boyunca hatırlanıyor (her soruda kayıp istek yok).
+Damga artık ne gönderdiğimizi değil, uç noktanın ne KABUL ETTİĞİNİ yazıyor.
+`SORBI_API_SEED=0/1/auto` ile elle ayarlanabilir; varsayılan `auto`.
+**ADR-5 Ö-7 artık "kısmen" değil, "bu uç noktada KAPANAMAZ".**
+
+> Ders: düzeltmeyi ölçmeden itmek, düzelttiğini sandığın şeyi bozmak olabilir.
+> Bu kez `kontrol.bat` yakaladı — çünkü İhsan onu koşturdu.
+
+**Denetim izi (B7R-05).** Güven kodları `denetim.guven_kodlari`'na yazılıyor
+(yerinde göç; ekleme-yalnız kayıt korunuyor). `audit.guven_karnesi()` ile
+saha sayımı — B-7'nin saha karnesi artık tahmin edilmeyecek, sayılacak.
+
+**Ayrıca:** damgalı `sonuclar-*.json` (BULGU-05) · "yakalanan" → "reddedilen"
+terim ayrımı (BULGU-06) · soru bazlı mod kaydı (YENİ-C) · ADR-3/4 yazıldı,
+ADR-5 taslağı depoya indi (YENİ-A) · `.gitignore` + depo hijyeni testleri
+(BULGU-15) · CI'a LLM'siz B-7 karnesi.
+
+### Ölçüldü
+
+```
+pytest tests/     415 geçti, 0 atlandı  (öncesi 363)   demo/*.db SİLİNMİŞ hâlde
+ruff check .      temiz
+kapsam            %79,0  (eşik %70)
+guven_olcum.py    gold=101 alarm=1 mutant=306 yakalanan=245 (%80,1)
+```
+
+### Ölçülmedi — dolayısıyla iddia edilmiyor
+
+- Yeni kontrollerin **gerçek model hatalarındaki** karnesi. %80,1 bir
+  MUTASYON sayısıdır; saha sayısı bir sonraki 101'lik koşumda çıkar.
+- `seed`'in sunucuda uygulanıp uygulanmadığı.
+- Güvenlik kapılarının canlı doğrulaması (kapsam dışıydı).
+
+### Açık — İhsan'da
+
+1. **Admin parolasını döndür** (BULGU-15). Hash `884f8d9`'de, uzak depo
+   geçmişinde. Takipten çıkarmak onu silmez. Depo açıksa bu **BLOK**.
+2. **CI'ın ilk yeşil koşumu** (YENİ-B). Bu push CI'ı gerçek kodla tetikleyen
+   ilk push.
+3. **ADR-5 Ship kararı.** Ö-1/2/3 bu İP'te kapandı; Ö-6 ve Ö-7 açık.
+
+### Sıradaki
+
+Nöbette: bir sonraki 101'lik koşumda `deger_uyumsuz` ve `distinct_eksik`'in
+saha karnesi raporlanacak; `join_ici_disi` ailesi için daha çok JOIN'li gold
+sorgusu gerekiyor (havuzda 1 mutant üretiyor, o sayı bir şey ölçmüyor).
+
+---
+
 ## 2026-08-23 (gece nöbeti) — İkinci Gemini koşumu: fark yok, ama belirlenim de yok
 
 **Koşum:** bulut, planlı görev · **Ölçüm okundu mu:** EVET · **Push yetkisi: YOK** (git proxy 403, üçüncü gece)
