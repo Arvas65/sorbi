@@ -201,6 +201,64 @@ def generate_local(question: str, context: str) -> dict:
     return _parse(content)
 
 
+# Belirlenim alanları ve uç noktanın gerçekte ne kabul ettiği (BULGU-08/17).
+#
+# 08-23 sabahı bulunan (BULGU-08): istek yalnız `temperature` taşıyordu; `seed`
+# sadece Ollama yoluna konuyordu. Damga ise her koşumda `seed=42, num_ctx=8192`
+# yazıyor, **uygulanmamış bir kontrolü uygulanmış gösteriyordu.**
+#
+# 08-23 öğleden sonra ölçülen (BULGU-17): `seed` eklenince Gemini'nin
+# OpenAI uyumluluk katmanı isteği tümden REDDETTİ —
+#
+#     HTTP 400  Unknown name "seed": Cannot find field.
+#
+# Yani bu uç noktada belirlenim "doğrulanmamış" değil, **mümkün değil.** Bu,
+# ADR-5 Ö-7 için tahmin değil ölçüm: api modunda tekrarlanabilirlik bir ayar
+# meselesi değil, sağlayıcının sözleşmesinde olmayan bir şey.
+#
+# Davranış: `seed` gönderilir; uç nokta "böyle bir alan yok" derse bir kez
+# ALANSIZ tekrar denenir ve bu OTURUM BOYUNCA hatırlanır. Sonuç damgaya
+# yazılır — ne gönderdiğimizi değil, uç noktanın ne KABUL ETTİĞİNİ.
+API_BELIRLENIM_ALANLARI = ("temperature", "seed")
+
+# None = henüz denenmedi · True = kabul edildi · False = uç nokta tanımıyor
+_seed_kabul: bool | None = None
+
+
+def belirlenim_durumu() -> str:
+    """Damga bunu okur. Ölçülmemiş bir şey iddia edilmez (CLAUDE.md § 3.4)."""
+    if config.API_SEED_GONDER is False:
+        return "seed gönderilmiyor (SORBI_API_SEED=0 ile kapatılmış)"
+    if _seed_kabul is None:
+        return "seed gönderiliyor; uç noktanın kabul edip etmediği henüz denenmedi"
+    if _seed_kabul is False:
+        return ("seed UYGULANAMIYOR — uç nokta bu alanı tanımıyor "
+                "(HTTP 400 'Unknown name \"seed\"'). Bu modda belirlenim mümkün değil.")
+    return ("seed gönderildi ve kabul edildi; UYGULANDIĞI doğrulanmadı — "
+            "tek kanıt tekrarlanmış koşumdur")
+
+
+def _api_govdesi(messages: list, seed_ile: bool = True) -> dict:
+    """İsteğin gövdesi. Damga `belirlenim_durumu()` ile ne olduğunu okur."""
+    govde = {"model": config.API_MODEL,
+             "messages": messages,
+             "temperature": config.TEMPERATURE}
+    if seed_ile and config.API_SEED_GONDER is not False and _seed_kabul is not False:
+        govde["seed"] = config.SEED
+    return govde
+
+
+def _seed_reddi_mi(govde_metni: str) -> bool:
+    """400 yanıtı 'seed diye bir alan yok' mu diyor?
+
+    Dar tutuluyor: her 400'ü seed'e yormak, gerçek bir istem hatasını sessizce
+    yutup ölçümü bozardı. İki işaret birden aranır.
+    """
+    m = govde_metni.lower()
+    return "seed" in m and ("unknown name" in m or "cannot find field" in m
+                            or "unrecognized" in m or "unexpected" in m)
+
+
 def _api_chat(messages: list, deneme: int = 4) -> str:
     """OpenAI-uyumlu sohbet çağrısı; 429'da artan aralıklarla yeniden dener.
 
@@ -216,9 +274,7 @@ def _api_chat(messages: list, deneme: int = 4) -> str:
         try:
             r = requests.post(f"{config.API_BASE.rstrip('/')}/chat/completions",
                               headers={"Authorization": f"Bearer {config.API_KEY}"},
-                              json={"model": config.API_MODEL,
-                                    "messages": messages,
-                                    "temperature": config.TEMPERATURE},
+                              json=_api_govdesi(messages),
                               timeout=90)
         except requests.exceptions.RequestException as e:
             raise LlmError(f"API servisine ulaşılamadı: {type(e).__name__}: "
@@ -242,9 +298,24 @@ def _api_chat(messages: list, deneme: int = 4) -> str:
                 "Bu bir model hatası değildir. Ücretsiz katmanda soru başına "
                 "bekleme koyun (SORBI_API_BEKLEME) ya da ölçümü daha sonra koşun.")
 
+        if r.status_code == 400 and "seed" in _api_govdesi(messages) \
+                and _seed_reddi_mi(r.text):
+            # Uç nokta `seed` alanını tanımıyor (Gemini OpenAI katmanı böyle).
+            # Bir kez alansız denenir ve bu oturum boyunca hatırlanır —
+            # her soruda bir kayıp istek yapmanın anlamı yok.
+            global _seed_kabul
+            _seed_kabul = False
+            _log.warning("API uç noktası `seed` alanını tanımıyor; bu oturumda "
+                         "seed gönderilmeyecek. Belirlenim bu modda MÜMKÜN DEĞİL "
+                         "(ADR-5 Ö-7).")
+            continue
+
         if r.status_code >= 400:
             detay = r.text[:300]
             raise LlmError(f"API hata verdi (HTTP {r.status_code}). {detay}")
+
+        if _seed_kabul is None and "seed" in _api_govdesi(messages):
+            _seed_kabul = True
 
         try:
             return r.json()["choices"][0]["message"]["content"]

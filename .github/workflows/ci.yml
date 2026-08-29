@@ -65,6 +65,14 @@ jobs:
       - name: Test seti bütünlüğü (gold-only)
         run: python eval/evaluate.py --db demo/hospital.db --gold-only
 
+      # B-7 mutasyon karnesi de LLM'siz koşar ve kendi geçmişiyle karşılaştırılır.
+      # CI'da koşması, güven kontrollerinde bir gerilemenin gece koşumunu
+      # beklemeden görülmesini sağlar (İP-33). Karne kendi eşiğini taşır:
+      # kod değişmediği hâlde sayı düşerse `KARNE-GECMIS.log` farkı yazar.
+      - name: Güven kontrolü mutasyon karnesi (LLM'siz)
+        if: matrix.python-version == '3.11'
+        run: python eval/guven_olcum.py
+
       - name: Kapsam raporunu sakla
         if: matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
@@ -91,7 +99,17 @@ jobs:
       - name: İmaj içinde demo veritabanları var mı
         run: docker run --rm sorbi:ci python -c "import os;assert os.path.exists('demo/hospital.db');print('demo DB tamam')"
 
-  # --- Henüz etkin değil ---
-  # regresyon:
-  #   İP-05 ile açılacak: execution accuracy son ölçümden 3 puandan fazla düşerse kırmızı.
-  #   Önce İP-03'ün baseline sayısı gerekiyor (docs/kanit/accuracy-<tarih>.md).
+  # --- Regresyon kapısı burada DEĞİL, gece koşumunda ---
+  #
+  # SPEC A-4'ün kapısı `eval/evaluate.py` içinde uygulandı (İP-33): eşli
+  # McNemar kararı, REGRESYON çıkarsa **çıkış kodu 3**. Ama koşabilmesi için
+  # bir LLM gerekiyor ve CI'da LLM yok (bilerek: bkz. yukarıdaki "yalnız core
+  # + dev" notu). Bu yüzden kapı gece koşumunda, İhsan'ın makinesinde işler.
+  #
+  # Eşik neden 3 puan DEĞİL: ölçülen gürültü tabanı koşumlar arası 7 ayrık
+  # soru (McNemar p = 1,000). Saf gürültüde |net| >= 3 soru çıkma olasılığı
+  # ~%45; kapı hiçbir şey olmadan neredeyse her iki koşumda bir ateşlerdi.
+  # Yeni kural: `bozulan - düzelen >= 3` VE `McNemar p < 0,05`.
+  #
+  # Burada koşan LLM'siz kapılar: ruff, testler, gold-only bütünlük,
+  # B-7 mutasyon karnesi.

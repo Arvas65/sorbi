@@ -1,0 +1,17 @@
+API uç noktasý `seed` alanýný tanýmýyor; bu oturumda seed gönderilmeyecek. Belirlenim bu modda MÜMKÜN DEÐÝL (ADR-5 Ö-7).
+SorBI ölçüm ortamý kontrolü
+============================================================
+Python      : 3.13.12 (Windows AMD64)
+Mod         : api
+Model       : gemini-3.7-flash
+API adresi  : https://generativelanguage.googleapis.com/v1beta/openai
+API adresi  : https://generativelanguage.googleapis.com/v1beta/openai
+
+  Tek soruluk deneme koþuluyor...
+  + üretim çalýþtý (4.7 sn), guven=1.0
+    üretilen SQL: SELECT COUNT(*) FROM doktor
+  + gizlilik: baðlamdaki DEÐERLER bloklarý dýþ servise gitmiyor (mask_context)
+
+DOCTOR_OZET hizlandirma=api model=gemini-3.7-flash deneme_sn=4.7 olcum_gunu=2026-07-23
+============================================================
+ORTAM HAZIR — ölçümü koþabilirsiniz.

@@ -24,6 +24,7 @@ bildirim döngüsüdür: kontrolü değiştir, 3 saniyede etkisini gör.
 Kullanım:  python eval/guven_olcum.py [--limit N]
 """
 import argparse
+import inspect
 import json
 import os
 import re
@@ -89,12 +90,82 @@ def _mutant_bos_kume(sql: str) -> str | None:
     return (sql[:m.start()] + ek + " " + sql[m.start():]) if m else sql.rstrip(" ;") + ek
 
 
+# ---------------------------------------------------- gerçekçi hata aileleri
+#
+# B7R-08 / BULGU-04 (2026-08-23). Yukarıdaki beş aile ortak bir kusuru
+# paylaşıyor: ürettikleri yanlış cevap BİÇİMİNDEN belli oluyor — boş küme,
+# sıfır toplam, şemada olmayan bir değer. B-7'nin sekiz kontrolü de tam olarak
+# o biçimler için yazıldı, dolayısıyla karne kendi kendini sınıyordu:
+# mutasyonda %83, gerçek model hatalarında %20 (GA'lar kesişmiyor).
+#
+# Gerçek hata şöyle görünüyor: **dolu, makul, doğru biçimli bir tablo ve
+# yanlış bir sayı.** Aşağıdaki aileler onu taklit ediyor. Karneyi DÜŞÜRMELERİ
+# beklenir — düşürmeleri iyidir; abartılı bir sayının yerine dürüst bir sayı
+# koyar. Karne bir regresyon nöbetçisidir; onu saha tahmincisine yaklaştıran
+# tek şey havuzun gerçek dağılıma benzemesidir.
+
+def _mutant_deger_takasi(sql: str, idx=None) -> str | None:
+    """Filtre değerini AYNI kolonun BAŞKA bir geçerli değeriyle değiştirir.
+
+    En zor aile ve gerçek hataya en yakın olanı: sorgu çalışır, satır döner,
+    tablo makul görünür, sayı yanlıştır. `bilinmeyen_deger` susar (değer
+    geçerli), `bos_sonuc` susar (satır var), `sifir_toplama` susar.
+    """
+    bilinen = getattr(idx, "bilinen_degerler", None) or {}
+    if not bilinen:
+        return None
+    for m in re.finditer(r"'([^']{2,})'", sql):
+        eski = m.group(1)
+        for anahtar, degerler in bilinen.items():
+            if "." in anahtar or eski not in degerler:
+                continue
+            baska = sorted(d for d in degerler if d != eski)
+            if baska:
+                return sql[:m.start(1)] + baska[0] + sql[m.end(1):]
+    return None
+
+
+def _mutant_karsilastirma_cevirme(sql: str) -> str | None:
+    """`>` ↔ `<` çevirir. 'En az 3 randevusu olan' → 'en fazla 3 olan'."""
+    for eski, yeni in ((">=", "<="), ("<=", ">="), (">", "<"), ("<", ">")):
+        m = re.search(rf"(?<![<>=]){re.escape(eski)}(?![<>=])", sql)
+        if m:
+            return sql[:m.start()] + yeni + sql[m.end():]
+    return None
+
+
+def _mutant_distinct_dus(sql: str) -> str | None:
+    """DISTINCT'i düşürür — 'kaç FARKLI hasta' sorusunu tekrarlarla sayar.
+
+    Model hatalarının en sık görülen sessiz biçimlerinden: sayı büyür, tablo
+    doğru görünür, hiçbir biçim kontrolü uyanmaz.
+    """
+    m = re.search(r"\bDISTINCT\b\s*", sql, re.IGNORECASE)
+    return sql[:m.start()] + sql[m.end():] if m else None
+
+
+def _mutant_join_ici_disi(sql: str) -> str | None:
+    """LEFT JOIN ↔ INNER JOIN. Eşleşmesi olmayan satırlar sessizce düşer/eklenir."""
+    if re.search(r"\bLEFT\s+(OUTER\s+)?JOIN\b", sql, re.IGNORECASE):
+        return re.sub(r"\bLEFT\s+(OUTER\s+)?JOIN\b", "JOIN", sql, count=1,
+                      flags=re.IGNORECASE)
+    if re.search(r"(?<!LEFT )\bJOIN\b", sql, re.IGNORECASE):
+        return re.sub(r"\bJOIN\b", "LEFT JOIN", sql, count=1, flags=re.IGNORECASE)
+    return None
+
+
 MUTASYONLAR = [
+    # biçimden belli olan aileler
     ("filtre_degeri", _mutant_filtre_degeri),
     ("where_dus", _mutant_where_dus),
     ("toplama_takasi", _mutant_toplama),
     ("limit_dus", _mutant_limit_dus),
     ("bos_kume", _mutant_bos_kume),
+    # gerçek model hatasına benzeyen aileler (B7R-08)
+    ("deger_takasi", _mutant_deger_takasi),
+    ("karsilastirma", _mutant_karsilastirma_cevirme),
+    ("distinct_dus", _mutant_distinct_dus),
+    ("join_ici_disi", _mutant_join_ici_disi),
 ]
 
 
@@ -174,7 +245,11 @@ def olc(limit: int | None = None, kapali=None) -> dict:
 
         for ad, fn in MUTASYONLAR:
             try:
-                mutant = fn(item["gold_sql"])
+                # Bazı aileler şemanın gerçek değerlerine ihtiyaç duyar
+                # (`deger_takasi`); imzasına bakıp öyle çağırıyoruz.
+                mutant = (fn(item["gold_sql"], idx)
+                          if "idx" in inspect.signature(fn).parameters
+                          else fn(item["gold_sql"]))
             except Exception:      # noqa: BLE001 - mutasyon üretimi ölçümü durdurmaz
                 mutant = None
             if not mutant or mutant.strip() == item["gold_sql"].strip():
@@ -334,6 +409,27 @@ def main() -> None:
         print("\nKaçırılan örnekler (yanlış cevap, uyarı yok):")
         for x in r["kacirilan_ornekleri"][:8]:
             print(f"  [{x['id']}] {x['mutasyon']:15s} {x['soru'][:50]}")
+
+    # B7R-01 (2026-08-23): kapatma kararı ölçüye bağlıydı ama ölçü her koşumda
+    # görünmüyordu — `--hepsi-acik` bayrağını hatırlamak gerekiyordu ve kimse
+    # hatırlamıyordu. Karar bir kez verilip donuyor, kontroller değişirken
+    # takas sessizce eskiyordu. Artık her tam koşum iki yapılandırmayı YAN YANA
+    # basıyor. Kararın kendisi değişmedi; görünürlüğü değişti.
+    if not a.hepsi_acik and not a.limit and r["kapali"]:
+        acik = olc(None, set())
+        r["acik_yakalanan"] = acik["yakalanan"]
+        r["acik_yanlis_alarm"] = acik["yanlis_alarm"]
+        print(f"\nKapatma kararının BUGÜNKÜ takası ({', '.join(r['kapali'])}):")
+        print(f"  {'':16s} {'yakalanan':>16s} {'gereksiz bayrak':>18s}")
+        print(f"  {'kapalı (şu an)':16s} {r['yakalanan']:>8d} "
+              f"(%{100 * r['yakalama_orani']:4.1f}) {r['yanlis_alarm']:>9d} "
+              f"(%{100 * r['yanlis_alarm_orani']:4.1f})")
+        print(f"  {'açık':16s} {acik['yakalanan']:>8d} "
+              f"(%{100 * acik['yakalama_orani']:4.1f}) {acik['yanlis_alarm']:>9d} "
+              f"(%{100 * acik['yanlis_alarm_orani']:4.1f})")
+        print(f"  Açmanın bedeli  : {acik['yakalanan'] - r['yakalanan']:+d} yakalama, "
+              f"{acik['yanlis_alarm'] - r['yanlis_alarm']:+d} gereksiz bayrak")
+
     # Makine okunur tek satır: betikler çıktı metnine değil BUNA baksın.
     # (kontrol.bat bu satırı okuyor; hizalama değişirse kırılmasın diye.)
     print(f"\nKARNE_OZET gun={r['olcum_gunu']} gold={r['gold_sayisi']} "

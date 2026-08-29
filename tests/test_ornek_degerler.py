@@ -42,7 +42,11 @@ def bellek_motoru():
 @pytest.fixture(scope="module")
 def idx():
     if not os.path.exists(DB):
-        pytest.skip("demo/hospital.db yok")
+        raise AssertionError(
+            "demo/hospital.db yok. tests/conftest.py onu içe aktarma anında\n"
+            "üretmeliydi (BULGU-N4). Atlamak yerine hata veriyoruz: atlanan\n"
+            "test, koşmamış testtir ve süiti sahte yeşile boyar."
+        )
     config.DB_URL = DB_URL
     return ContextIndex(DB_URL)
 

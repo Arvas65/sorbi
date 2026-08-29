@@ -31,8 +31,6 @@ def test_build_url_bilinmeyen_tip():
         connections.build_url("oracle")
 
 
-@pytest.mark.skipif(not os.path.exists(SATIS),
-                    reason="demo/satis.db yok — önce demo/seed_satis.py çalıştırın")
 def test_connection_basarili():
     r = connections.test_connection(connections.build_url("sqlite", dosya=SATIS))
     assert r["ok"] and "musteri" in r["tablolar"]

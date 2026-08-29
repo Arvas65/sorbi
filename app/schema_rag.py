@@ -145,10 +145,23 @@ def _kesfet(eng, maskeli: set[str]
         # G-16 maskeleme kuralı değişmedi: maskeli kolonlar hiç örneklenmez.
         ornekler = ornek_degerler(eng, t, col_names, maskeli)
         for k, v in ornekler.items():
-            # Kolon ADI ile anahtarlanır (tablo.kolon değil): üretilen SQL'de
-            # kolon çoğu zaman takma adla nitelenir ve hangi tabloya ait
-            # olduğunu çözmek ayrı bir iş. Aynı adlı kolonların değerleri
-            # birleşir — yanlış alarm riskini düşürür, kaçırma riskini artırır.
+            # İKİ anahtar birden yazılır (B7R-06, 2026-08-23):
+            #
+            #   "tablo.kolon" -> yalnız o tablonun değerleri      (KESİN)
+            #   "kolon"       -> aynı adlı kolonların birleşimi   (YEDEK)
+            #
+            # Eskiden yalnız ikincisi vardı ve gerekçesi geçerliydi: üretilen
+            # SQL'de kolon çoğu zaman takma adla nitelenir, hangi tabloya ait
+            # olduğunu çözmek ayrı bir iş. Ama çözülebildiği durumlar da
+            # birleşik kümeye düşüyordu: `randevu.durum` ile `fatura.durum`
+            # farklı değer kümeleri taşırken biri diğerini örtüyor, yanlış bir
+            # filtre "bilinen" sayılıp bayrak yemiyordu.
+            #
+            # `guven._filtre_degerleri` artık önce tabloyu çözmeyi deniyor
+            # (takma ad haritasıyla); çözebilirse kesin kümeyi, çözemezse
+            # birleşik kümeyi kullanıyor. Kaçırma yalnız çözülemeyen durumda
+            # kalıyor, yanlış alarm hiç artmıyor.
+            degerler.setdefault(f"{t.lower()}.{k.lower()}", set()).update(v)
             degerler.setdefault(k.lower(), set()).update(v)
         if ornekler and config.ORNEK_DEGERLER:
             satirlar = [f"  {k} = {' | '.join(v)}" for k, v in ornekler.items()]

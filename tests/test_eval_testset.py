@@ -16,9 +16,6 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = os.path.join(HERE, "demo", "hospital.db")
 TESTSET = os.path.join(HERE, "eval", "test_set_tr.jsonl")
 
-pytestmark = pytest.mark.skipif(not os.path.exists(DB),
-                                reason="demo/hospital.db yok — önce demo/seed_data.py çalıştırın")
-
 
 def _items():
     with open(TESTSET, encoding="utf-8") as f:

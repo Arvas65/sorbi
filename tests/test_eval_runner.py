@@ -56,7 +56,11 @@ def _cevap(sql, guven=0.9):
 @pytest.fixture(scope="module")
 def idx():
     if not os.path.exists(DB):
-        pytest.skip("demo/hospital.db yok — önce: python demo/seed_data.py")
+        raise AssertionError(
+            "demo/hospital.db yok. tests/conftest.py onu içe aktarma anında\n"
+            "üretmeliydi (BULGU-N4). Atlamak yerine hata veriyoruz: atlanan\n"
+            "test, koşmamış testtir ve süiti sahte yeşile boyar."
+        )
     config.DB_URL = f"sqlite:///{DB}"
     return ContextIndex(config.DB_URL)
 
@@ -185,7 +189,11 @@ def test_hedef_altinda_kalinca_adr2_uyarisi_yazilir(tmp_path):
 def test_gold_only_llm_olmadan_kosar(tmp_path, capsys):
     """CI'ın koştuğu yol: hiçbir LLM içe aktarılmadan test seti sağlığı ölçülür."""
     if not os.path.exists(DB):
-        pytest.skip("demo/hospital.db yok")
+        raise AssertionError(
+            "demo/hospital.db yok. tests/conftest.py onu içe aktarma anında\n"
+            "üretmeliydi (BULGU-N4). Atlamak yerine hata veriyoruz: atlanan\n"
+            "test, koşmamış testtir ve süiti sahte yeşile boyar."
+        )
     kod = evaluate.main(["--db", DB, "--gold-only"])
     cikti = capsys.readouterr().out
     assert kod == 0

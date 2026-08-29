@@ -16,6 +16,7 @@ Kullanım:
 """
 import argparse
 import json
+import math
 import os
 import platform
 import shutil
@@ -339,7 +340,12 @@ def run_one(item: dict, idx, mode: str, gen_mod) -> dict:
     context, _ = idx.retrieve(item["soru"])
 
     try:
-        gen, _used = gen_mod.generate(annotated, context, mode)
+        gen, kullanilan_mod = gen_mod.generate(annotated, context, mode)
+        # YENİ-C (2026-08-23): `generate` GERÇEKTEN kullanılan modu dönüyor ve
+        # bu değer atılıyordu; damga koşulsuz api modelini yazıyordu. Sessiz bir
+        # yerele düşüş (kota, ağ) yine "gemini" damgasıyla raporlanırdı — yani
+        # ölçüm hangi modeli ölçtüğünü bilmiyordu. Artık soru bazında kayıtlı.
+        rec["mod"] = kullanilan_mod
     except Exception as e:
         # Kota aşımı bir MODEL HATASI DEĞİLDİR; ayrı aşama adı alır ki
         # özet onu doğruluk kaybı gibi saymasın.
@@ -438,12 +444,26 @@ def ozetle(results: list) -> dict:
     # Doğruluk yüzdesinden ayrı izlenir çünkü riski farklıdır: yakalanan hata
     # kullanıcıyı uyarır, sessiz yanlış yanlış sayıyı yönetime taşır (B7 riski).
     sessiz = sum(1 for r in results if r["asama"] == "sonuc_farkli")
-    yakalanan = sum(1 for r in results
-                    if r["asama"].startswith(("dogrulama_reddi", "calisma_hatasi",
-                                              "uretim_hatasi", "onarim_hatasi")))
+    # BULGU-06 (2026-08-23): bu sayı raporda "yakalanan" diye geçiyordu, güven
+    # karnesindeki "yakalanan" ise B-7 BAYRAĞI demekti. Aynı raporda "yakalanan
+    # hata 0/101" ve "sessiz yanlışın 6/30'u yakalandı" yan yana duruyordu;
+    # çelişki değil, iki tanım — ama okuyucu bunu bilemez. Bu taraf artık
+    # REDDEDİLEN adını taşıyor: hattın cevabı kullanıcıya HİÇ vermediği durum.
+    reddedilen = sum(1 for r in results
+                     if r["asama"].startswith(("dogrulama_reddi", "calisma_hatasi",
+                                               "uretim_hatasi", "onarim_hatasi")))
     yanlis = n - dogru
     ozet["sessiz_yanlis"] = sessiz
-    ozet["yakalanan_hata"] = yakalanan
+    ozet["reddedilen"] = reddedilen
+    # Eski ad geriye dönük uyum için duruyor; yeni kod `reddedilen` kullanmalı.
+    ozet["yakalanan_hata"] = reddedilen
+    # Hangi mod kaç soruyu cevapladı (YENİ-C). Damga tek bir model adı yazar;
+    # bu satır o adın koşumun TAMAMI için geçerli olup olmadığını gösterir.
+    mod_dagilimi: dict[str, int] = {}
+    for r in results:
+        if r.get("mod"):
+            mod_dagilimi[r["mod"]] = mod_dagilimi.get(r["mod"], 0) + 1
+    ozet["mod_dagilimi"] = mod_dagilimi
     ozet["sessiz_yanlis_orani"] = sessiz / n if n else 0.0
     # Yanlışların kaçta kaçı sessiz? Asıl izlenecek sayı bu.
     ozet["yanlislarda_sessiz_pay"] = sessiz / yanlis if yanlis else 0.0
@@ -526,7 +546,87 @@ def onceki_olcum(yol: str) -> dict | None:
             "olcum_gunu": (veri.get("damga") or {}).get("olcum_gunu"),
             "p50_s": ozet.get("p50_s"), "p95_s": ozet.get("p95_s"),
             "sessiz_yanlis": ozet.get("sessiz_yanlis"),
-            "damga": veri.get("damga", {})}
+            "damga": veri.get("damga", {}),
+            # Soru bazlı sonuç: eşli karşılaştırmanın (McNemar) tek girdisi.
+            # Toplam yüzde eşli bir karar veremez; hangi SORULARIN yön
+            # değiştirdiğini bilmek gerekir (BULGU-09/10).
+            "sorular": {str(r.get("id")): bool(r.get("dogru"))
+                        for r in (veri.get("results") or []) if r.get("id") is not None}}
+
+
+def _mcnemar_p(b: int, c: int) -> float:
+    """İki yönlü tam (exact) McNemar olasılığı. `scipy` gerektirmez.
+
+    b: önce doğru → şimdi yanlış · c: önce yanlış → şimdi doğru
+    Sıfır hipotezi: bir sorunun yön değiştirmesi yazı-tura kadar rastlantısal.
+    """
+    n = b + c
+    if n == 0:
+        return 1.0
+    k = min(b, c)
+    kuyruk = sum(math.comb(n, i) for i in range(k + 1)) / (2 ** n)
+    return min(1.0, 2 * kuyruk)
+
+
+# Kaç soruluk net fark "ölçülebilir" sayılsın. Eşik değil, ikinci bir emniyet:
+# p küçük olsa bile tek soruluk bir fark için CI'ı kırmızıya döndürmek
+# gürültüyü olay yerine koymak olurdu.
+REGRESYON_ASGARI_FARK = 3
+REGRESYON_P_ESIGI = 0.05
+
+
+def regresyon_karari(onceki: dict | None, results: list) -> dict | None:
+    """SPEC A-4'ün regresyon kapısı — ham puan farkı yerine EŞLİ karar.
+
+    Neden değişti (BULGU-10, 2026-08-23). A-4 "doğruluk son ölçümden 3 puandan
+    fazla düşerse CI kırmızı" diyordu. Ölçülen api gürültü tabanı: aynı kod,
+    aynı ayarlar, iki koşum arasında **7 ayrık soru** (McNemar p = 1,000).
+    Saf gürültüde |net| >= 3 soru çıkma olasılığı **yaklaşık %45.** Yani kapı,
+    hiçbir şey olmadan neredeyse her iki koşumda bir ateşleyecek biçimde
+    kalibreydi — ve ateşlemeye başlayan bir kapı kapatılan bir kapıdır.
+
+    Yeni kural aynı soruların yön değişimine bakar:
+
+        b = önce doğru, şimdi yanlış        c = önce yanlış, şimdi doğru
+        REGRESYON  <=>  b - c >= 3  VE  McNemar p < 0,05
+
+    "3 puan" atılmadı; ölçülebilir bir farkın İÇİNE alındı. Gürültü artık
+    kapıyı açamaz, gerçek bir gerileme hâlâ açar.
+    """
+    if not onceki or not onceki.get("sorular"):
+        return None
+    eski = onceki["sorular"]
+    ortak = [(str(r["id"]), bool(r.get("dogru"))) for r in results
+             if str(r.get("id")) in eski]
+    if not ortak:
+        return None
+    b = sum(1 for i, yeni in ortak if eski[i] and not yeni)
+    c = sum(1 for i, yeni in ortak if not eski[i] and yeni)
+    p = _mcnemar_p(b, c)
+    if b - c >= REGRESYON_ASGARI_FARK and p < REGRESYON_P_ESIGI:
+        karar = "REGRESYON"
+    elif c - b >= REGRESYON_ASGARI_FARK and p < REGRESYON_P_ESIGI:
+        karar = "IYILESME"
+    else:
+        karar = "FARK_YOK"
+    return {"karar": karar, "eslesen": len(ortak), "bozulan": b, "duzelen": c,
+            "net": c - b, "p": p,
+            "asgari_fark": REGRESYON_ASGARI_FARK, "p_esigi": REGRESYON_P_ESIGI}
+
+
+def regresyon_satiri(k: dict) -> str:
+    """Kararı tek satırda, hükmü ve dayanağıyla."""
+    if k["karar"] == "FARK_YOK":
+        bas = "FARK YOK"
+        aciklama = ("ölçülebilir bir doğruluk farkı yok"
+                    if k["bozulan"] or k["duzelen"] else "hiçbir soru yön değiştirmedi")
+    elif k["karar"] == "REGRESYON":
+        bas, aciklama = "REGRESYON", "gerileme gürültüyle açıklanamıyor"
+    else:
+        bas, aciklama = "İYİLEŞME", "iyileşme gürültüyle açıklanamıyor"
+    return (f"{bas} — {k['eslesen']} eşleşen soru, {k['bozulan']} bozuldu, "
+            f"{k['duzelen']} düzeldi (net {k['net']:+d}), McNemar p = {k['p']:.3f}; "
+            f"{aciklama}.")
 
 
 def karsilastirilamaz(onceki: dict, ozet: dict, damga: dict) -> str | None:
@@ -618,6 +718,24 @@ def _kota_uyarisi(ozet: dict) -> str:
             "> aşımı giderilip tekrarlanmalıdır.\n")
 
 
+def _mod_satiri(ozet: dict, damga: dict) -> str:
+    """Damga tek bir model adı yazar; koşumun tamamı o modelle mi koştu?
+
+    YENİ-C: `generate` gerçekten kullanılan modu dönüyor ama atılıyordu.
+    Sessiz bir yerele düşüş (kota, ağ kesintisi) yine api damgasıyla
+    raporlanırdı. Bu satır iddiayı sayıya bağlar.
+    """
+    dagilim = ozet.get("mod_dagilimi") or {}
+    n = ozet.get("n") or 0
+    if not dagilim:
+        return "ölçülmedi"
+    beklenen = damga.get("mod")
+    parcalar = ", ".join(f"`{k}` {v}/{n}" for k, v in sorted(dagilim.items()))
+    if beklenen and set(dagilim) == {beklenen}:
+        return f"{parcalar} — damgayla tutarlı"
+    return f"{parcalar} — **damga `{beklenen}` diyor, koşum bölündü**"
+
+
 def _guven_bolumu(g: dict) -> str:
     """Güven kontrolünün karnesi — rapora her koşumda girer.
 
@@ -633,7 +751,7 @@ def _guven_bolumu(g: dict) -> str:
         f"cevaplardır ({g['evren']} soru) — sessiz yanlışın yaşadığı yer.\n",
         "| Ölçü | Değer | Yön |",
         "|------|-------|-----|",
-        f"| Sessiz yanlışların yakalananı | **{g['yakalanan']}/{g['sessiz_yanlis']}** "
+        f"| Sessiz yanlışların **bayraklananı** | **{g['yakalanan']}/{g['sessiz_yanlis']}** "
         f"(%{100 * g['yakalama_orani']:.0f}) | yükselmeli |",
         f"| Doğru cevaba konan gereksiz bayrak | {g['yanlis_alarm']}/{g['dogru_cevap']} "
         f"(%{100 * g['yanlis_alarm_orani']:.0f}) | düşmeli |",
@@ -654,6 +772,27 @@ def _guven_bolumu(g: dict) -> str:
                             f"%{100 * v['isabet']:.0f} |")
         satirlar.append("")
     return "\n".join(satirlar) + "\n"
+
+
+def _belirlenim(mode: str) -> str:
+    """Damga, uygulanmamış bir ayarı uygulanmış gösteremez (BULGU-08).
+
+    Metin KODDAN türetilir, elle yazılmaz: `generator.API_BELIRLENIM_ALANLARI`
+    isteğin gerçekten taşıdığı alanların listesidir. Biri isteğe eklenir ya da
+    çıkarılırsa damga kendiliğinden düzelir — "ADR'yi yazıp koda indirmemek"
+    hatasının damga tarafındaki hâli tam olarak buydu.
+
+    Gönderilmiş olmak UYGULANMIŞ olmak değildir: barındırılan modellerin çoğu
+    `seed`'i sessizce yok sayar. Bu yüzden api tarafında hüküm verilmiyor,
+    yalnız ne gönderildiği yazılıyor. Belirlenimin tek kanıtı tekrardır.
+    """
+    if mode == "local":
+        return f"seed={config.SEED}, num_ctx={config.NUM_CTX} — Ollama isteğine konuyor"
+    try:
+        from app import generator
+        return generator.belirlenim_durumu()
+    except Exception:                    # noqa: BLE001 - damga LLM'siz de yazılabilmeli
+        return "bilinmiyor (üretici içe aktarılamadı)"
 
 
 def _damga(mode: str) -> dict:
@@ -679,13 +818,20 @@ def _damga(mode: str) -> dict:
         # belirlenim kontrolünü uygulanmış gibi gösteriyordu — ölçülmemiş şeyi
         # iddia etme kuralının ihlali. 2026-08-23'te iki api koşumu aynı
         # temperature/seed ile 7 soruda ayrıştı; sebebi buydu.
-        "belirlenim": ("seed+num_ctx uygulandı" if mode == "local"
-                       else f"seed/num_ctx UYGULANMADI — {mode} isteği bu alanları taşımıyor"),
+        "belirlenim": _belirlenim(mode),
     }
 
 
-def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None) -> tuple[str, str]:
-    """docs/kanit/ altına iki markdown raporu yazar. Dönen: (accuracy yolu, gecikme yolu)."""
+def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None,
+              govde: dict | None = None) -> tuple[str, str]:
+    """docs/kanit/ altına raporları yazar. Dönen: (accuracy yolu, gecikme yolu).
+
+    `govde` verilirse aynı damgayla bir de `sonuclar-<sonek>.json` yazılır
+    (BULGU-05): soru bazlı sonuç `eval/results.json` içindeydi, o da
+    `.gitignore`'da — rapor hiç itilmeyen bir dosyayı kaynak gösteriyordu ve
+    eşli karşılaştırmanın (McNemar) girdisi kanıt klasörüne hiç girmiyordu.
+    Üç dosya aynı soneki taşır; hangisinin hangi koşuma ait olduğu gözle görülür.
+    """
     os.makedirs(klasor, exist_ok=True)
     t = damga["tarih"]
     # Dosya adı koşuma özgü olmalı. Saha kaydı (2026-08-16): bir günde altı ölçüm
@@ -700,6 +846,10 @@ def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None) 
         if not os.path.exists(acc_yol):
             break
         ek += 1
+    if govde is not None:
+        with open(os.path.join(klasor, f"sonuclar-{sonek}.json"), "w",
+                  encoding="utf-8") as f:
+            json.dump(govde, f, ensure_ascii=False, indent=2)
     basari = ozet["accuracy"] >= HEDEF_ACCURACY
 
     def damga_blogu() -> str:
@@ -730,6 +880,18 @@ def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None) 
             f"{_fark_satiri(ozet['sessiz_yanlis'], onceki['sessiz_yanlis'], 'soru', yukselmesi_iyi=False)} |\n\n"
             "> Karşılaştırma yalnız test seti ve ölçüm yöntemi aynıysa anlamlıdır.\n"
             "> Model ya da soru sayısı değiştiyse bu tabloyu tek başına okuma.\n\n")
+        # Yukarıdaki tablo FARKI gösterir; hükmü aşağıdaki satır verir.
+        # Ham puan farkına bakan bir kapı gürültünün içinde kalıyordu (BULGU-10).
+        _reg = regresyon_karari(onceki, govde.get("results") or []) if govde else None
+        if _reg:
+            karsilastirma += (
+                "### Regresyon kapısı (SPEC A-4)\n\n"
+                f"**{regresyon_satiri(_reg)}**\n\n"
+                f"Kural: `bozulan - düzelen >= {_reg['asgari_fark']}` **ve** "
+                f"`McNemar p < {_reg['p_esigi']}`. Ham puan farkı tek başına hüküm "
+                "vermez: aynı kod, aynı ayarlarla alınan iki api koşumu arasında "
+                "7 soru yön değiştirmişti (p = 1,000) — saf gürültüde 3 soruluk net "
+                "fark çıkma olasılığı yaklaşık %45.\n\n")
 
     with open(acc_yol, "w", encoding="utf-8") as f:
         f.write(f"""# Execution Accuracy Raporu — {t}
@@ -754,8 +916,13 @@ sistem analizi B7 bunu projenin en büyük riski olarak kaydetmişti.
 | Ölçü | Değer |
 |------|-------|
 | Sessiz yanlış (çalıştı, cevap yanlış) | **{ozet['sessiz_yanlis']}/{ozet['n']}** (%{100 * ozet['sessiz_yanlis_orani']:.1f}) |
-| Yakalanan hata (reddedildi / hata verdi) | {ozet['yakalanan_hata']}/{ozet['n']} |
+| Reddedilen (cevap kullanıcıya hiç ulaşmadı) | {ozet['reddedilen']}/{ozet['n']} |
+
+> "Reddedilen" ile aşağıdaki güven karnesinin "yakalanan"ı **ayrı şeylerdir**:
+> burada hat cevabı vermiyor, orada cevap veriliyor ve yanına uyarı konuyor.
+> (BULGU-06 — aynı raporda iki tanım aynı adı taşıyordu.)
 | **Yanlışların içinde sessiz olanların payı** | **%{100 * ozet['yanlislarda_sessiz_pay']:.1f}** |
+| Cevabı gerçekten üreten mod | {_mod_satiri(ozet, damga)} |
 
 Son satır asıl izlenecek sayıdır: doğruluk yükselse bile bu pay yüksek kalıyorsa
 ürün güvenilir değildir.
@@ -930,6 +1097,7 @@ def main(argv=None) -> int:
               f"doğru cevapta {g['yanlis_alarm']}/{g['dogru_cevap']} gereksiz bayrak "
               f"(%{100 * g['yanlis_alarm_orani']:.0f}); isabet %{100 * g['isabet']:.0f}")
     _engel = karsilastirilamaz(onceki, ozet, damga) if onceki else None
+    _regresyon = None
     if _engel:
         print(f"ÖNCEKİ ÖLÇÜM: karşılaştırma yapılmadı — {_engel}")
     elif onceki:
@@ -937,19 +1105,32 @@ def main(argv=None) -> int:
         print(f"ÖNCEKİ ÖLÇÜM: %{100 * onceki['accuracy']:.1f} "
               f"({onceki.get('damga', {}).get('tarih', '?')}) -> "
               f"{'+' if fark >= 0 else ''}{fark:.1f} puan")
+        # Ham puan farkı bir HÜKÜM değildir; hükmü eşli karar verir (BULGU-09/10).
+        _regresyon = regresyon_karari(onceki, results)
+        if _regresyon:
+            print(f"REGRESYON KAPISI: {regresyon_satiri(_regresyon)}")
     for grup, anahtar in [("Zorluk", "zorluk"), ("JOIN sayısı", "join")]:
         print(f"\n{grup} kırılımı:")
         for val, v in ozet["kirilim"][anahtar].items():
             print(f"  {val}: {v['dogru']}/{v['toplam']} = %{100 * v['dogru'] / v['toplam']:.0f}")
 
+    _govde = {"damga": damga,
+              "ozet": {k: v for k, v in ozet.items() if k != "en_yavas_5"},
+              "regresyon": _regresyon,
+              "results": results}
     with open(args.out, "w", encoding="utf-8") as f:
-        json.dump({"damga": damga, "ozet": {k: v for k, v in ozet.items() if k != "en_yavas_5"},
-                   "results": results}, f, ensure_ascii=False, indent=2)
+        json.dump(_govde, f, ensure_ascii=False, indent=2)
 
-    acc_yol, gec_yol = rapor_yaz(ozet, damga, args.kanit_dir, onceki)
+    # BULGU-05: damgalı soru bazlı kopya da kanıt klasörüne yazılır.
+    acc_yol, gec_yol = rapor_yaz(ozet, damga, args.kanit_dir, onceki, govde=_govde)
+    sonuc_yol = acc_yol.replace("accuracy-", "sonuclar-").replace(".md", ".json")
     print(f"\nAyrıntılı rapor : {args.out}")
-    print(f"Kanıt raporları : {acc_yol}\n                  {gec_yol}")
-    print("\nBu iki dosyayı commit'leyin — v3 SPEC A-2/A-3'ün kabul kriteri budur.")
+    print(f"Kanıt raporları : {acc_yol}\n                  {gec_yol}\n                  {sonuc_yol}")
+    print("\nBu dosyaları commit'leyin — v3 SPEC A-2/A-3'ün kabul kriteri budur.")
+    # CI için: regresyon kapısı kırmızıya döndürebilmeli (SPEC A-4).
+    if _regresyon and _regresyon["karar"] == "REGRESYON":
+        print("\n!! REGRESYON KAPISI KIRMIZI — çıkış kodu 3.")
+        return 3
     return 0
 
 

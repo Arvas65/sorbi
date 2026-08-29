@@ -31,7 +31,11 @@ DB_URL = f"sqlite:///{DB}"
 @pytest.fixture(scope="module")
 def edges():
     if not os.path.exists(DB):
-        pytest.skip("demo/hospital.db yok — önce: python demo/seed_data.py")
+        raise AssertionError(
+            "demo/hospital.db yok. tests/conftest.py onu içe aktarma anında\n"
+            "üretmeliydi (BULGU-N4). Atlamak yerine hata veriyoruz: atlanan\n"
+            "test, koşmamış testtir ve süiti sahte yeşile boyar."
+        )
     _docs, _cols, e, _ = discover_schema(DB_URL)
     return e
 
@@ -130,7 +134,11 @@ def test_tek_tablo_icin_yol_uretilmez(edges):
 def test_retrieve_join_yollarini_ve_ara_tablolari_ekliyor():
     """Uçtan uca: 'Bölümlere göre toplam ciro' (baseline soru 37, reddedilmişti)."""
     if not os.path.exists(DB):
-        pytest.skip("demo/hospital.db yok")
+        raise AssertionError(
+            "demo/hospital.db yok. tests/conftest.py onu içe aktarma anında\n"
+            "üretmeliydi (BULGU-N4). Atlamak yerine hata veriyoruz: atlanan\n"
+            "test, koşmamış testtir ve süiti sahte yeşile boyar."
+        )
     idx = ContextIndex(DB_URL)
     ctx, tables = idx.retrieve("Bölümlere göre toplam ciro nedir?")
     assert "JOIN YOLLARI" in ctx

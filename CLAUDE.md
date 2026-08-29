@@ -74,10 +74,23 @@ Bunlar tartışmaya açık değil; birini bozan bir değişiklik geri alınır.
 sayı yanlış. Doğruluk arttıkça bu oran da artıyor (güçlü model sözdizim değil
 anlam hatası yapar). Güvenilirlik doğruluk artırılarak çözülmez.
 
-**Buna karşı:** B-7 güven kontrolleri. Mutasyon karnesinde yakalama %83,
-gereksiz uyarı %1. Gerçek model hatalarındaki karne henüz **ölçülmedi**.
+**Buna karşı:** B-7 güven kontrolleri. **İki ayrı karne var, karıştırma:**
 
-**Bekleyen:** İhsan'ın İP-03c Review triyajı (8 madde) + Ollama'lı temiz koşum.
+| Karne | Sayı | Ne demek |
+|-------|------|----------|
+| Mutasyon (bizim ürettiğimiz hatalar) | **%80,1** (245/306) | regresyon nöbetçisi |
+| Gerçek model hataları (saha) | **%20** (6/30, GA %9,5–37,3) | sahada beklenen |
+
+Aralıklar kesişmiyor; bu bir dalgalanma değil (BULGU-04, iki gecede %17 → %20).
+Mutasyon karnesi bir **regresyon nöbetçisidir, saha tahmincisi değildir.**
+Havuz 2026-08-23'te gerçek hata ailelerini de kapsayacak şekilde genişletildi
+(239 → 306 mutant) ve sayı %83,3'ten düştü — düşüş bir gerileme değil, eski
+sayının bir kısmının havuzun kolaylığından geldiğinin ölçülmesi.
+
+Sahadaki bayraklar artık denetim izine yazılıyor (`audit.guven_karnesi()`),
+yani saha karnesi bir daha tahmin edilmeyecek, sayılacak.
+
+**Bekleyen:** Ship kapısı — ADR-5 (İP-32), karar bölümü boş.
 
 ## 6. Alınmış kararlar
 
@@ -86,6 +99,9 @@ gereksiz uyarı %1. Gerçek model hatalarındaki karne henüz **ölçülmedi**.
 - **ADR-2 rev.2** QLoRA tetiklendi ama **ertelendi** — fine-tune yanlış cevap
   sayısını azaltır, görünmezliğini azaltmaz.
 - **ADR-3** Chroma RAG · **ADR-4** sqlglot ile lehçe taşınabilirliği
+- **ADR-5** çıkarım nerede koşacak (yerel / API) — **TASLAK, karar verilmedi.**
+  Ship kapısıdır: API modunu kalıcı yapmak ADR-1'in "veri dışarı çıkmaz"
+  reddini geri almak demektir.
 - Lisans: çift — çekirdek açık, kurumsal katman kapalı
 - Mimari: FastAPI çekirdek + Streamlit istemci, tam yeniden yazım yok
 - Roller: güvenlik-kritik modülleri İhsan yazar, altyapıyı Claude
@@ -107,6 +123,7 @@ Tekrarlanmasın diye duruyorlar. Hepsi gerçekten oldu.
 | Beklenen değeri betiğe gömmek | Sabit, yazıldığı ana ve makineye aittir. Ölçüleni **kendi geçmişiyle** karşılaştır |
 | Kuralı skill'e yazıp koda yazmamak | `karsilastirilamaz()` belgelenen beş koşuldan ikisini denetliyordu |
 | Gizlilik vaadini docstring'e yazmak | `generate_api` "veri değeri asla gitmez" diyordu; bunu sağlayan tek şey bir ayarın hatırlanmasıydı |
+| Bağlı klasörde bulut oturumundan git yazmak | Montajda `rm` yasak; git kilidini **silemiyor**. Kalan `index.lock` gece koşumunu 5 gün sessizce durdurdu. Okuma için `--no-optional-locks`, yazdıysan kalıntıyı temizle |
 
 Ortak paydaları: **bir yerde geçerli olanın başka yerde de geçerli olduğunu
 varsaymak.** Çare hep aynı — varsayımı çalıştırılabilir bir kontrole çevir.

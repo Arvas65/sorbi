@@ -10,6 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app import config  # noqa: E402
 from eval.evaluate import _damga, _fark_satiri, g12_kapsam_disi, rapor_yaz  # noqa: E402
 
 # --- 1. Yuvarlama yalanı (2026-08-23 kanıtı) -------------------------------
@@ -68,16 +69,66 @@ def test_hedefi_asan_tek_soru_gizlenmez(tmp_path):
 
 
 # --- 3. Damga uygulanmamış ayarı uygulanmış gibi göstermez ----------------
-# `generate_api` seed/num_ctx göndermez; damga ikisini de yazıyordu.
+# Eskiden `generate_api` isteği yalnız `temperature` taşıyordu ama damga her
+# koşumda `seed=42, num_ctx=8192` yazıyordu (BULGU-08). Artık `seed` gerçekten
+# gönderiliyor VE damga metni koddan türetiliyor: isteğin alan listesi
+# değişirse damga kendiliğinden düzelir.
 
-def test_damga_api_modda_belirlenimi_uygulanmadi_der():
-    d = _damga("api")
-    assert "UYGULANMADI" in d["belirlenim"]
+def test_damga_metni_koddan_tureniyor():
+    """Damga metni elle yazılmaz; üreticinin GÖZLENEN durumundan gelir."""
+    from app import generator
+    assert _damga("api")["belirlenim"] == generator.belirlenim_durumu()
 
 
-def test_damga_yerel_modda_belirlenimi_uygulandi_der():
+def test_api_istegi_seed_gonderiyor(monkeypatch):
+    from app import generator
+    monkeypatch.setattr(generator, "_seed_kabul", None)
+    monkeypatch.setattr(config, "API_SEED_GONDER", None)
+    govde = generator._api_govdesi([{"role": "user", "content": "x"}])
+    assert govde["seed"] == config.SEED
+    assert set(generator.API_BELIRLENIM_ALANLARI) <= set(govde)
+
+
+def test_uc_nokta_reddettiyse_seed_bir_daha_gonderilmiyor(monkeypatch):
+    """BULGU-17: Gemini'nin OpenAI katmanı `seed`'i tanımıyor —
+    `HTTP 400 Unknown name "seed"`. Her soruda bir kayıp istek yapmanın
+    anlamı yok; ret bir kez öğrenilir ve oturum boyunca hatırlanır."""
+    from app import generator
+    monkeypatch.setattr(generator, "_seed_kabul", False)
+    monkeypatch.setattr(config, "API_SEED_GONDER", None)
+    assert "seed" not in generator._api_govdesi([{"role": "user", "content": "x"}])
+
+
+def test_seed_reddi_dar_taniniyor():
+    """Her 400'ü seed'e yormak, gerçek bir istem hatasını sessizce yutardı."""
+    from app import generator
+    assert generator._seed_reddi_mi('Unknown name "seed": Cannot find field.')
+    assert not generator._seed_reddi_mi("Invalid model name")
+    assert not generator._seed_reddi_mi("context length exceeded")
+
+
+def test_api_damgasi_belirlenim_iddia_etmiyor(monkeypatch):
+    """Göndermek uygulanmış olmak değildir; damga hüküm vermemeli."""
+    from app import generator
+    monkeypatch.setattr(generator, "_seed_kabul", True)
+    monkeypatch.setattr(config, "API_SEED_GONDER", None)
+    assert "doğrulanmadı" in _damga("api")["belirlenim"]
+
+
+def test_uc_nokta_tanimiyorsa_damga_bunu_yaziyor(monkeypatch):
+    """ADR-5 Ö-7 için asıl cümle bu: belirlenim doğrulanmamış DEĞİL,
+    bu uç noktada MÜMKÜN DEĞİL."""
+    from app import generator
+    monkeypatch.setattr(generator, "_seed_kabul", False)
+    monkeypatch.setattr(config, "API_SEED_GONDER", None)
+    metin = _damga("api")["belirlenim"]
+    assert "UYGULANAMIYOR" in metin and "mümkün değil" in metin
+
+
+def test_damga_yerel_modda_gercek_degerleri_yaziyor():
     d = _damga("local")
-    assert "uygulandı" in d["belirlenim"]
+    assert f"seed={config.SEED}" in d["belirlenim"]
+    assert f"num_ctx={config.NUM_CTX}" in d["belirlenim"]
 
 
 # --- 4. Rapor başlığı gerçek soru sayısını yazar --------------------------
@@ -107,7 +158,8 @@ def _ornek_ozet(p50=2.29, p95=4.81, en_yavas=None):
         "p50_s": p50, "p95_s": p95,
         "sessiz_yanlis": 30, "sessiz_yanlis_orani": 30 / 101,
         "yanlislarda_sessiz_pay": 1.0,
-        "yakalanan_hata": 0, "onarim_sayisi": 0,
+        "yakalanan_hata": 0, "reddedilen": 0, "onarim_sayisi": 0,
+        "mod_dagilimi": {},
         "kirilim": {"zorluk": {"kolay": {"dogru": 31, "toplam": 35}},
                     "join": {0: {"dogru": 41, "toplam": 54}}},
         "asama_dagilimi": {"esit": 71, "sonuc_farkli": 30},

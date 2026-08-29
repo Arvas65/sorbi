@@ -1,3 +1,17 @@
 SorBI gece kosumu - 20260829-0300
 [gece] kontrol.bat tam /sessiz  
 [gece] kontrol.bat cikis kodu: 1 
+[ip-01-02-altyapi e168113] olcum: gece kosumu 20260829-0300 (otomatik)
+ 12 files changed, 2490 insertions(+), 1 deletion(-)
+ create mode 100644 docs/kanit/accuracy-2026-08-29-gemini-3-7-flash-01.md
+ create mode 100644 docs/kanit/doctor-20260829-0300.txt
+ create mode 100644 docs/kanit/gece-20260829-0300.log
+ create mode 100644 docs/kanit/gecikme-2026-08-29-gemini-3-7-flash-01.md
+ create mode 100644 docs/kanit/karne-20260829-0300.txt
+ create mode 100644 docs/kanit/kontrol-20260829-0300.log
+ create mode 100644 docs/kanit/sonuclar-2026-08-29-gemini-3-7-flash-01.json
+[gece] kanit islendi 
+To https://github.com/Arvas65/sorbi.git
+   8d5efb3..e168113  HEAD -> olcum-otomatik
+[gece] push tamam: olcum-otomatik dali 
+[gece] bitti 

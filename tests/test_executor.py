@@ -3,16 +3,11 @@
 """
 import os
 
-import pytest
-
 from app import executor
 
 DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                   "demo", "hospital.db")
 DB_URL = f"sqlite:///{DB}"
-
-pytestmark = pytest.mark.skipif(not os.path.exists(DB),
-                                reason="demo/hospital.db yok — önce demo/seed_data.py çalıştırın")
 
 
 def test_basarili_sorgu():

@@ -37,6 +37,16 @@ API_MODEL = os.getenv("SORBI_API_MODEL", "gemini-3.7-flash")
 # görünür ve doğruluğu sahte biçimde düşürür.
 API_BEKLEME_S = float(os.getenv("SORBI_API_BEKLEME", "0"))
 
+# `seed` isteğe konsun mu (BULGU-08/17).
+#   boş / "auto" -> gönder, uç nokta reddederse bir kez alansız dene ve hatırla
+#   "0"          -> hiç gönderme
+#   "1"          -> her zaman gönder (reddedilirse hata görünür kalsın)
+# Varsayılan `auto`: Gemini'nin OpenAI katmanı bu alanı tanımıyor
+# (HTTP 400 "Unknown name \"seed\""), OpenAI ve vLLM tanıyor. Sağlayıcıya
+# göre elle ayar yapmak zorunda kalmak, unutulan bir bayrak demektir.
+_seed_ayar = os.getenv("SORBI_API_SEED", "auto").strip().lower()
+API_SEED_GONDER = None if _seed_ayar in ("", "auto") else _seed_ayar not in ("0", "false", "hayir")
+
 # --- Veritabanı (G-14) ---
 DB_URL = os.getenv("SORBI_DB_URL", f"sqlite:///{os.path.join(HERE, 'demo', 'hospital.db')}")
 TARGET_DIALECT = os.getenv("SORBI_DIALECT", "sqlite")   # sqlite | postgres | tsql | mysql (ADR-4)

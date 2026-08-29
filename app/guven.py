@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
-from app.preprocess import keywords, light_stem
+from app.preprocess import keywords, light_stem, resolve_dates
 
 # Kod listesi — ölçüm raporu bu adlarla kırılım verir.
 BOS_SONUC = "bos_sonuc"
@@ -49,10 +49,18 @@ SEMA_ORTUSMEZ = "sema_ortusmez"
 SIFIR_TOPLAMA = "sifir_toplama"
 FILTRESIZ = "filtresiz"
 ATLANAN_KOLON = "atlanan_kolon"
+# İP-33 (2026-08-23): mutasyon havuzuna gerçek model hatasına benzeyen aileler
+# eklenince yakalama %83 → %72'ye düştü ve düşüşün nerede olduğu görüldü —
+# dolu, makul, doğru biçimli tablo + yanlış sayı. Aşağıdaki iki kontrol tam
+# olarak o aileyi hedefliyor; ikisi de biçime değil, SORU İLE SORGUNUN
+# UYUMUNA bakıyor.
+DEGER_UYUMSUZ = "deger_uyumsuz"
+DISTINCT_EKSIK = "distinct_eksik"
 
 TUM_KODLAR = (BOS_SONUC, BOS_SONUC_FILTRELI, BILINMEYEN_DEGER, BICIM_SAYI,
               BICIM_LISTE, BICIM_ADET, TOPLAMA_UYUMSUZ, SEMA_ORTUSMEZ,
-              SIFIR_TOPLAMA, FILTRESIZ, ATLANAN_KOLON)
+              SIFIR_TOPLAMA, FILTRESIZ, ATLANAN_KOLON,
+              DEGER_UYUMSUZ, DISTINCT_EKSIK)
 
 
 @dataclass
@@ -114,6 +122,27 @@ def _kok_ortusur(a: set[str], b: set[str]) -> bool:
         return True
     return any(len(x) >= 3 and len(y) >= 3 and (x.startswith(y) or y.startswith(x))
                for x in a for y in b)
+
+
+def _on_ek_ortusur(kok: str, kokler: set[str], asgari: int) -> bool:
+    """İki kök aynı `asgari` harfle mi başlıyor.
+
+    `_kok_ortusur`'den iki farkı var ve ikisi de ölçümden geldi:
+
+    1. **Eşik ayarlanabilir.** Üç harflik ön ek, ŞEMA adları arasında doğru bir
+       tolerans ('has' ⊂ 'hastam'); DEĞER metinleri arasında gürültü. Ölçüldü:
+       "Hangi katlarda bölüm var?" sorusunda 'kat' kökü 'Katarakt' değerine üç
+       harfle bağlanıp doğru bir cevaba uyarı koyuyordu.
+
+    2. **`startswith` değil, ilk N harf.** Türkçede fiilden türeyen sıfat ile
+       kolondaki durum kodu ortak bir GÖVDEYİ paylaşır ama ikisi de birbirinin
+       ön eki değildir: 'geciken' ↔ 'GECIKTI', 'gelmeyen' ↔ 'GELMEDI'.
+       `startswith` bu çiftleri kaçırıyor, ilk beş harf yakalıyor.
+    """
+    if len(kok) < asgari:
+        return False
+    bas = kok[:asgari]
+    return any(len(o) >= asgari and o[:asgari] == bas for o in kokler)
 
 
 # --------------------------------------------------------------------- niyet
@@ -202,6 +231,63 @@ def _bos_sonuc(sonuc: GuvenSonucu, satir_sayisi: int, agac) -> None:
             "geliyor olabilir ama sorgunun yanlış olma ihtimali de var.")
 
 
+def _takma_ad_haritasi(agac) -> tuple[dict[str, str], str | None]:
+    """Sorgudaki takma ad → gerçek tablo eşlemesi ve (tekse) tek tablo adı.
+
+    B7R-06'nın çözümü buradan başlıyor: `bilinen_degerler` artık hem
+    `tablo.kolon` hem `kolon` anahtarı taşıyor, ama üretilen SQL'de kolon
+    genellikle `r.durum` gibi bir TAKMA ADLA nitelenmiş oluyor. Doğru kümeyi
+    seçebilmek için önce o takma adın hangi tabloya karşılık geldiğini bilmek
+    gerekiyor.
+
+    İkinci dönen değer, sorguda tek bir tablo varsa onun adı: o durumda
+    niteliksiz bir kolon (`durum`) da kesin biçimde çözülebilir.
+    """
+    harita: dict[str, str] = {}
+    tablolar: set[str] = set()
+    if agac is None:
+        return harita, None
+    for t in agac.find_all(exp.Table):
+        ad = (t.name or "").lower()
+        if not ad:
+            continue
+        tablolar.add(ad)
+        harita[ad] = ad
+        takma = (t.alias or "").lower()
+        if takma:
+            harita[takma] = ad
+    return harita, (next(iter(tablolar)) if len(tablolar) == 1 else None)
+
+
+def _kolon_degerleri(kolon, bilinen_degerler: dict, harita: dict[str, str],
+                     tek_tablo: str | None, nitelikli: set[str]):
+    """Bir kolon için KESİN değer kümesini bulur; bulamazsa birleşiğe düşer.
+
+    Dönen: (değerler, kesin_mi). `kesin_mi` False ise küme aynı adlı bütün
+    kolonların birleşimidir — bayrak koymak hâlâ güvenlidir (değer hiçbirinde
+    yoksa gerçekten yoktur), ama kaçırma olabilir.
+
+    `nitelikli`, sözlükte `tablo.kolon` anahtarı bulunan tabloların kümesi.
+    Bunun kontrol edilmesi şart: sözlük nitelikli anahtar taşımıyorsa (elle
+    kurulmuş bir harita, eski bir kayıt) kolonun o tabloda örneklenmediğini
+    değil, sözlüğün o biçimde olmadığını gösterir — o durumda susmak yerine
+    birleşik kümeye düşmek doğrudur.
+    """
+    ad = kolon.name.lower()
+    nitel = (kolon.table or "").lower()
+    tablo = harita.get(nitel) if nitel else tek_tablo
+    if tablo and tablo in nitelikli:
+        kesin = bilinen_degerler.get(f"{tablo}.{ad}")
+        if kesin:
+            return kesin, True
+        # Tablo çözüldü, o tablonun değerleri sözlükte var, ama BU kolon
+        # örneklenmemiş: kolon sayısal, maskeli ya da yüksek kardinaliteli
+        # demektir; yer gerçeğimiz yok. Birleşik kümeye DÜŞMEYİZ — başka bir
+        # tablonun değerleriyle karşılaştırmak yanlış alarmın ta kendisidir.
+        return None, True
+    return bilinen_degerler.get(ad), False
+
+
 def _filtre_degerleri(sonuc: GuvenSonucu, agac, bilinen_degerler: dict) -> None:
     """SQL'deki metin filtreleri, o kolonun GERÇEK değerleri arasında mı?
 
@@ -228,18 +314,22 @@ def _filtre_degerleri(sonuc: GuvenSonucu, agac, bilinen_degerler: dict) -> None:
             if isinstance(sabit, exp.Literal) and sabit.is_string:
                 ciftler.append((kolon, str(sabit.this)))
 
+    harita, tek_tablo = _takma_ad_haritasi(agac)
+    nitelikli = {a.split(".", 1)[0] for a in bilinen_degerler if "." in a}
     for kolon, deger in ciftler:
-        degerler = bilinen_degerler.get(kolon.name.lower())
+        degerler, kesin = _kolon_degerleri(kolon, bilinen_degerler, harita,
+                                           tek_tablo, nitelikli)
         if not degerler or deger in degerler:
             continue
         yakin = [d for d in degerler if _sade(d) == _sade(deger)]
+        nitel = f"{kolon.table}.{kolon.name}" if kolon.table else kolon.name
         if yakin:
             ipucu = f" Veritabanındaki yazım: {yakin[0]!r}."
         else:
-            ipucu = (" Bu kolondaki değerler: "
+            ipucu = (f" {'Bu kolondaki' if kesin else 'Aynı adlı kolonlardaki'} değerler: "
                      f"{', '.join(repr(d) for d in sorted(degerler)[:6])}.")
         sonuc.bayrak(BILINMEYEN_DEGER,
-                     f"'{kolon.name}' kolonu {deger!r} değeriyle filtrelendi ama bu "
+                     f"'{nitel}' kolonu {deger!r} değeriyle filtrelendi ama bu "
                      f"değer veritabanında bulunmuyor.{ipucu}")
 
 
@@ -330,9 +420,18 @@ def _filtresiz(sonuc: GuvenSonucu, soru: str, agac, bilinen_degerler: dict) -> N
     cevap tüm hastalardır — sorgu çalışır, sayı makul görünür, yanlıştır.
     Mutasyon karnesinde WHERE'i düşürülen 54 sorgunun 45'i hiç bayrak almıyordu.
 
-    Daraltma işareti üç yerden gelir: sorudaki bir sayı (LIMIT olarak
+    Daraltma işareti beş yerden gelir: sorudaki bir sayı (LIMIT olarak
     harcanmamış), cümle başında olmayan büyük harfli bir sözcük (özel ad),
-    ya da doğrudan şemada bilinen bir değer.
+    kesme işaretiyle ek almış bir özel ad, doğrudan şemada bilinen bir değer,
+    ya da **bir zaman ifadesi** ("geçen ay", "bu yıl", "bugün", "son 7 gün").
+
+    Zaman ayağı B7R-03 ile eklendi (2026-08-23). Kaçırılan `where_dus`
+    mutantlarının ölçülen dökümünde en büyük aile buydu: "Geçen ay kaç randevu
+    oluşturuldu?", "Bu yıl kesilen faturaların toplam tutarı", "Bugün bekleyen
+    kaç randevu" — üçünde de daraltma var ama ne sayı ne özel ad ne bilinen
+    değer taşıyor, dolayısıyla hiçbir işaret uyanmıyordu. Oysa aynı ifadeleri
+    `preprocess.resolve_dates` zaten tanıyor ve mutlak aralığa çeviriyor:
+    istemde kullanılan bilgi, kontrolde kullanılmıyordu.
     """
     if agac is None or agac.find(exp.Where, exp.Having) is not None:
         return
@@ -355,13 +454,53 @@ def _filtresiz(sonuc: GuvenSonucu, soru: str, agac, bilinen_degerler: dict) -> N
     # daraltma taşır ve büyük harf kuralı onu kaçırıyordu.
     isaretler += re.findall(r"\b\w{3,}(?=['’][a-zçğıöşü]{1,4}\b)", soru)
 
+    # Zaman daraltması (B7R-03). `resolve_dates` yalnız dize eşlemesi yapar;
+    # veritabanına gitmez, LLM çağırmaz. Hata verirse kontrol susar — bir
+    # yardımcı kontrolün kendisi cevabı düşüremez.
+    try:
+        _, zamanlar = resolve_dates(soru)
+    except Exception:                          # noqa: BLE001 - kontrol susar, cevap düşmez
+        zamanlar = []
+    isaretler += [z["ifade"] for z in zamanlar]
+
     # Bilinen bir değer aynı zamanda sorgunun kullandığı TABLONUN adıysa,
     # daraltma değil konu belirtmesidir: "muayene" hem islem.ad değeri hem
     # muayene tablosudur ve "en çok muayene yapan bölüm" WHERE istemez.
     tablo_kokleri = {_kok(t) for t in _sql_tablolari(agac)}
-    bilinen = {_sade(d) for degerler in (bilinen_degerler or {}).values() for d in degerler}
+    # `bilinen_degerler` aynı değeri iki anahtar altında taşır (`tablo.kolon`
+    # ve `kolon` — B7R-06). Burada aranan şey "bu kelime şemada bir değer mi",
+    # yani birleşik küme; noktalı anahtarlar atlanarak bir kez toplanır.
+    bilinen = {_sade(d)
+               for anahtar, degerler in (bilinen_degerler or {}).items() if "." not in anahtar
+               for d in degerler}
     isaretler += [w for w in kelimeler
                   if _sade(w) in bilinen and not _kok_ortusur({_kok(w)}, tablo_kokleri)]
+
+    # Durum sözcükleri (B7R-03, ikinci ayak). Yukarıdaki eşleşme TAM dizedir ve
+    # Türkçede neredeyse hiç tutmaz: kolonda `GECIKTI` yazar, soru "geciken
+    # fatura" der; kolonda `GELMEDI`, soruda "gelmeyen". Aynı gövde, farklı
+    # türetme — ikisi de birbirinin ön eki DEĞİL. `_on_ek_ortusur` bunun için
+    # ilk beş harfi karşılaştırıyor.
+    #
+    # Dar tutuluyor, çünkü gevşek eşleşme yanlış alarm üretir:
+    #   - sözcük en az 5 harf, durak listesi ve tablo adları dışarıda
+    #   - yalnız DEĞER kökleri; kolon/tablo adları değil
+    deger_kokleri = {_kok(d) for d in bilinen if len(d) >= 4} - tablo_kokleri
+    isaretler += [w for w in kelimeler
+                  if len(w) >= 5 and _kok(w) not in _DURAK
+                  and not _kok_ortusur({_kok(w)}, tablo_kokleri)
+                  and _on_ek_ortusur(_kok(w), deger_kokleri, 5)]
+
+    # Daraltma WHERE'de değil de bir CASE içinde ifade edilmiş olabilir:
+    # "Randevusuna gelmeme oranı en yüksek 5 doktor" sorusunun DOĞRU sorgusu
+    # WHERE taşımaz, `SUM(CASE WHEN durum='GELMEDI' ...)` taşır. Sorgu o
+    # değeri zaten yazmışsa daraltma eksik değildir — işaret düşürülür.
+    # (Ölçüldü: bu eleme olmadan yukarıdaki ayak 1 gereksiz bayrak üretiyordu.)
+    if isaretler:
+        sabit_kokleri = {_kok(x) for x in _metin_sabitleri(agac)}
+        if sabit_kokleri:
+            isaretler = [w for w in isaretler
+                         if not _on_ek_ortusur(_kok(str(w)), sabit_kokleri, 5)]
 
     if isaretler:
         sonuc.bayrak(
@@ -419,9 +558,139 @@ def _atlanan_kolon(sonuc: GuvenSonucu, soru: str, agac, kolonlar) -> None:
             "sorulan koşul ya da kırılım atlanmış olabilir.")
 
 
+_FARKLI_SORAN = re.compile(r"\b(farkli|ayri|benzersiz|essiz|tekil)\b")
+
+# Karşılaştırma yönü. "en az / en fazla" KASTEN yok: Türkçede hem eşik
+# ("en az 3 randevusu olan" = >= 3) hem üstünlük ("en az randevu alan doktor"
+# = MIN) anlamına geliyor ve ikisini ayırmak sayının varlığına bağlı —
+# belirsiz bir işaretle yanlış alarm üretmektense susmak doğru.
+_BUYUK_SORAN = re.compile(r"\b(uzerinde|ustunde|buyuk|fazlasi|asan|gecen|"
+                          r"yukari|sonraki|sonrasinda)\b")
+_KUCUK_SORAN = re.compile(r"\b(altinda|altindaki|kucuk|azi|dusuk|"
+                          r"asagi|onceki|oncesinde)\b")
+
+
+def _karsilastirma_yonu(sonuc: GuvenSonucu, soru: str, agac) -> None:
+    """Soru "üzerinde" diyor, sorgu `<` yazmış (ya da tersi).
+
+    Yön hatası sessiz yanlışın en sinsi biçimlerinden: sorgu çalışır, satır
+    döner, tablo tam olarak beklenen biçimdedir — yalnız yanlış tarafı sayar.
+    `karsilastirma` mutant ailesinde ölçüldü.
+
+    KASTEN dar: yalnız SAYISAL bir eşikle yapılan karşılaştırmaya bakar ve
+    soruda yön işareti tek yönlüyse konuşur. Tarih karşılaştırmaları dışarıda
+    (metin sabitidir ve "geçen ay" gibi ifadeler `filtresiz`'in işidir).
+    """
+    if agac is None:
+        return
+    s = _sade(soru)
+    buyuk, kucuk = bool(_BUYUK_SORAN.search(s)), bool(_KUCUK_SORAN.search(s))
+    if buyuk == kucuk:                 # ikisi de yok ya da ikisi de var
+        return
+    for dugum in agac.find_all(exp.GT, exp.GTE, exp.LT, exp.LTE):
+        sabit = dugum.expression
+        if not isinstance(sabit, exp.Literal) or sabit.is_string:
+            continue
+        sql_buyuk = isinstance(dugum, (exp.GT, exp.GTE))
+        if sql_buyuk != buyuk:
+            beklenen, yazilan = (">", "<") if buyuk else ("<", ">")
+            sonuc.bayrak(
+                DEGER_UYUMSUZ,
+                f"Soru '{beklenen}' yönünde bir eşik istiyor gibi görünüyor ama "
+                f"sorgu '{yazilan}' yazmış. Sonuç dolu döner; sayılan taraf ters olabilir.")
+            return
+
+
+def _distinct_eksik(sonuc: GuvenSonucu, soru: str, agac) -> None:
+    """Soru "kaç FARKLI" diyor, sorgu DISTINCT'siz sayıyor.
+
+    Sessiz yanlışın ders kitabı örneği: "MR çektiren kaç farklı hasta var?"
+    sorusuna `COUNT(*)` cevabı ÇEKİM sayısını verir, HASTA sayısını değil.
+    Sayı büyür, tablo doğru görünür, hiçbir biçim kontrolü uyanmaz — ölçüldü:
+    `distinct_dus` mutantlarının %100'ü kaçıyordu.
+    """
+    if agac is None:
+        return
+    s = _sade(soru)
+    if not (_FARKLI_SORAN.search(s) and _SAYI_SORAN.search(s)):
+        return
+    sayimlar = [n for n in agac.find_all(exp.Count)]
+    if not sayimlar:
+        return
+    # `COUNT(DISTINCT x)` ya da sorgunun kendisinde `SELECT DISTINCT` varsa
+    # tekilleştirme yapılmıştır. `GROUP BY` de aynı işi görebilir.
+    if any(n.find(exp.Distinct) for n in sayimlar):
+        return
+    if agac.find(exp.Distinct) is not None or agac.find(exp.Group) is not None:
+        return
+    sonuc.bayrak(
+        DISTINCT_EKSIK,
+        "Soru 'kaç farklı' diye soruyor ama sayım tekilleştirilmemiş "
+        "(`COUNT(DISTINCT ...)` yok). Tekrar eden kayıtlar varsa sayı "
+        "olduğundan büyük çıkar.")
+
+
+def _deger_uyumsuz(sonuc: GuvenSonucu, soru: str, agac, bilinen_degerler: dict) -> None:
+    """Soruda geçen değer, sorgunun filtrelediği değer DEĞİL.
+
+    `bilinmeyen_deger` sorgunun yazdığı değerin şemada olup olmadığına bakar.
+    Bu kontrol bir adım ötesini sorar: değer şemada VAR ama soru başka bir
+    değeri istiyor. "İptal edilen randevu sayısı" sorusuna `durum='BEKLIYOR'`
+    cevabı — sorgu çalışır, satır döner, tablo makul, sayı yanlıştır.
+
+    Ölçüm sebebi: `deger_takasi` ailesi (gold'daki filtre değerini AYNI kolonun
+    başka bir geçerli değeriyle değiştirmek) mevcut sekiz kontrolün hiçbirine
+    takılmıyordu — %21 yakalama. Gerçek model hatalarının %20'lik saha
+    karnesinin arkasındaki aile büyük ölçüde budur.
+    """
+    if agac is None or not bilinen_degerler:
+        return
+    kelime_kokleri = {_kok(w) for w in re.findall(r"\w+", soru) if len(w) >= 4}
+    if not kelime_kokleri:
+        return
+    harita, tek_tablo = _takma_ad_haritasi(agac)
+    nitelikli = {a.split(".", 1)[0] for a in bilinen_degerler if "." in a}
+    for esitlik in agac.find_all(exp.EQ):
+        kolon = esitlik.find(exp.Column)
+        sabit = esitlik.find(exp.Literal)
+        if kolon is None or sabit is None or not sabit.is_string:
+            continue
+        kullanilan = str(sabit.this)
+        degerler, _ = _kolon_degerleri(kolon, bilinen_degerler, harita,
+                                       tek_tablo, nitelikli)
+        if not degerler or kullanilan not in degerler:
+            continue        # bilinmeyen değer: öteki kontrolün işi
+        # Sorgunun kullandığı değer soruda anılıyorsa uyum vardır.
+        if _on_ek_ortusur(_kok(kullanilan), kelime_kokleri, 5) or \
+                _sade(kullanilan) in {_sade(w) for w in re.findall(r"\w+", soru)}:
+            continue
+        # Soru, AYNI kolonun BAŞKA bir değerini anıyor mu?
+        anilan = [d for d in degerler
+                  if d != kullanilan and len(d) >= 4
+                  and _on_ek_ortusur(_kok(d), kelime_kokleri, 5)]
+        if anilan:
+            nitel = f"{kolon.table}.{kolon.name}" if kolon.table else kolon.name
+            sonuc.bayrak(
+                DEGER_UYUMSUZ,
+                f"Soru {anilan[0]!r} değerinden söz ediyor ama sorgu "
+                f"'{nitel}' kolonunu {kullanilan!r} ile filtreliyor. "
+                "Sonuç dolu ve makul görünür; sayı sorulan şeyin sayısı olmayabilir.")
+
+
 def _soru_sema_ortusmesi(sonuc: GuvenSonucu, soru: str, tablolar,
-                         sozluk: dict) -> None:
-    """Sorudaki iş terimleri, sorgunun dokunduğu tablolarla hiç örtüşmüyorsa şüphe."""
+                         sozluk: dict, agac=None) -> None:
+    """Sorudaki iş terimleri, sorgunun dokunduğu şemayla hiç örtüşmüyorsa şüphe.
+
+    B7R-01 (2026-08-23): kontrol yalnız TABLO adlarına bakıyordu ve bu yüzden
+    kapalı geliyordu — ölçülen yanlış alarmın %83'ü buradandı. Örnek:
+    "Gastrit tanısı alan kaç farklı hasta var?" sorgusu `muayene` tablosuna
+    ve `tani` kolonuna dokunuyor; 'tanı' bir KOLON adıdır, tablo adı değil.
+    Örtüşme vardı, kontrol göremiyordu.
+
+    Kolon adları da şema tarafına yazılınca kontrol açılabilir hâle geldi.
+    Ölçüm bu değişikliğin sonucudur, gerekçesi değil — `test_guven_karne.py`
+    her iki yapılandırmanın sayısını kilitliyor.
+    """
     if not tablolar:
         return
     kokler = {_kok(w) for w in keywords(_sade(soru))} - _DURAK
@@ -430,6 +699,12 @@ def _soru_sema_ortusmesi(sonuc: GuvenSonucu, soru: str, tablolar,
     sema = set()
     for t in tablolar:
         sema |= {_kok(p) for p in re.split(r"[_\W]+", str(t)) if p}
+    # Sorgunun GERÇEKTEN andığı kolonlar. Çok parçalı adlar parçalanır
+    # (`odeme_durumu` → 'odeme', 'durumu'), çünkü soru parçayı tek başına anar.
+    if agac is not None:
+        for kolon in agac.find_all(exp.Column):
+            if kolon.name:
+                sema |= {_kok(p) for p in re.split(r"[_\W]+", kolon.name) if len(p) >= 3}
     # Terim sözlüğü iş terimini şema nesnesine bağlar (G-06). Terimin KENDİSİ de
     # şema tarafına yazılır: 'ciro' sözlükte tanımlıysa şemada 'ciro' kolonu
     # aranmaz — terim zaten karşılığına bağlanmıştır, örtüşme sağlanmış sayılır.
@@ -471,8 +746,11 @@ def degerlendir(soru: str, sql: str, satir_sayisi: int, kolon_sayisi: int = 1,
         _filtresiz(sonuc, soru, agac, bilinen_degerler or {})
         _atlanan_kolon(sonuc, soru, agac, kolonlar or ())
         _toplama_uyumu(sonuc, soru, agac)
+        _distinct_eksik(sonuc, soru, agac)
+        _karsilastirma_yonu(sonuc, soru, agac)
+        _deger_uyumsuz(sonuc, soru, agac, bilinen_degerler or {})
         _soru_sema_ortusmesi(sonuc, soru, tuple(tablolar or ()) or _sql_tablolari(agac),
-                             sozluk or {})
+                             sozluk or {}, agac)
     except Exception as e:      # noqa: BLE001 - sözleşme: asla fırlatma
         sonuc.bayraklar.append(
             Bayrak("kontrol_hatasi", f"(güven kontrolü tamamlanamadı: {type(e).__name__})"))
