@@ -27,7 +27,7 @@ REM Test sayisi da BURADA TUTULMUYOR. Tutuluyordu ve 2026-08-22'de yanlis
 REM alarm uretti: ayni gun 6 test eklendi, sabit 320'de kalmisti. Sabit,
 REM yazildigi ana aittir. Artik kosum kendi gecmisiyle karsilastiriliyor
 REM (docs\kanit\TEST-GECMIS.log) ve yalnizca DUSUS uyari sayiliyor.
-set BEKLENEN_GOLD=101
+REM (BEKLENEN_GOLD kaldirildi: hicbir yerde kullanilmiyordu - BULGU-19)
 
 set HATA=0
 set UYARI=0
@@ -152,8 +152,15 @@ python eval\guven_olcum.py > "!KARNE!" 2>&1
 type "!KARNE!" >>"!LOG!"
 
 REM Karne, sonunda tek satirlik makine okunur ozet basiyor:
-REM   KARNE_OZET gun=... gold=... alarm=... mutant=... yakalanan=...
-REM Betik hizalamaya degil BU satira bakar.
+REM   KARNE_OZET gun=... gold=... alarm=... mutant=... yakalanan=... zbos=...
+REM Sabit BEKLENEN deger TUTULMUYOR (BULGU-19, 2026-08-29). BEKLENEN_GUN/
+REM ALARM/MUTANT/YAKALAMA hicbir yerde atanmiyordu, ayrica sablonda zbos=
+REM alani yoktu; karsilastirma HER kosumda "farkli" dedi. Her kosumda
+REM ateslenen bir alarm, alarm degildir. Artik karne KENDI gecmisiyle
+REM karsilastiriliyor (docs\kanit\KARNE-GECMIS.log) ve yalnizca DUSUS
+REM uyaridir - test sayisi icin 2026-08-22'de verilen kararin ayni sekilde
+REM karneye uygulanmasi. Denetleyicinin kendi testleri var:
+REM tests\test_karne_gecmisi.py
 set KARNE_SATIR=
 for /f "usebackq delims=" %%L in (`findstr /B /C:"KARNE_OZET" "!KARNE!"`) do set KARNE_SATIR=%%L
 if "!KARNE_SATIR!"=="" (
@@ -161,14 +168,8 @@ if "!KARNE_SATIR!"=="" (
     set HATA=1
 ) else (
     echo       !KARNE_SATIR!
-    set BEKLENEN_SATIR=KARNE_OZET gun=!BEKLENEN_GUN! gold=101 alarm=!BEKLENEN_ALARM! mutant=!BEKLENEN_MUTANT! yakalanan=!BEKLENEN_YAKALAMA!
-    if "!KARNE_SATIR!"=="!BEKLENEN_SATIR!" (
-        echo       beklendigi gibi.
-    ) else (
-        echo       DIKKAT: beklenenden farkli.
-        echo       beklenen: !BEKLENEN_SATIR!
-        set UYARI=1
-    )
+    python eval\karne_gecmisi.py
+    if errorlevel 1 set UYARI=1
 )
 echo.
 
