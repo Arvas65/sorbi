@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Arvas65/sorbi/docs/is-hatti/v4/anlam-modeli.schema.json",
+  "title": "SorBı anlam modeli",
+  "description": "Bir bağlantının anlamı (ADR-8, ADR-9). VERİ TUTMAZ — yalnız tanım: tablo/kolon adları, ölçü ifadeleri, insan onaylı değer sözlükleri. Hiçbir veri satırı içermez.",
+  "type": "object",
+  "required": ["sema_surumu", "baglanti", "surum", "tablolar", "olculer", "boyutlar"],
+  "additionalProperties": false,
+  "properties": {
+    "sema_surumu": {"const": 1, "description": "Bu DOSYA biçiminin sürümü. Modelin kendi sürümü ayrı alandır."},
+    "baglanti": {"type": "string", "minLength": 1},
+    "surum": {"type": "integer", "minimum": 1, "description": "Her insan onayında bir artar. Kanıt damgası bunu taşır (SPEC F-5); farklı sürümlerle alınmış iki ölçüm karşılaştırılamaz."},
+    "onaylayan": {"type": "string"},
+    "maskeli": {"type": "array", "items": {"type": "string", "pattern": "^[^.]+\\.[^.]+$"},
+                "description": "tablo.kolon biçiminde. Bu kolonlara dokunan seçim DERLEME ANINDA reddedilir (SPEC E-5)."},
+    "tablolar": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["ad", "tur", "tane", "gecerlilik_karari"],
+        "additionalProperties": false,
+        "properties": {
+          "ad": {"type": "string"},
+          "tur": {"enum": ["olay", "varlik"]},
+          "tane": {"type": "string", "minLength": 1,
+                   "description": "EKSEN 6 — bir satır neyi temsil ediyor. Şemadan çıkarılamaz; insan söyler."},
+          "kolonlar": {"type": "array", "items": {"type": "string"}},
+          "olay_tarihi": {"type": ["string", "null"],
+                          "description": "EKSEN 7 — 'ne zaman oldu' hangi kolon. Olay tablolarında zorunlu, varlık tablolarında null."},
+          "gecerlilik_karari": {"enum": ["sorulmadi", "var", "yok"],
+                                "description": "EKSEN 8. 'sorulmadi' modeli GEÇERSİZ yapar: cevaplanmadı ile cevabı yok aynı şey değildir."},
+          "gecerlilik": {"type": ["string", "null"],
+                         "description": "Örn. 'randevu.iptal = 0'. Derleyici bunu her sorguya otomatik ekler — unutulamaz."},
+          "iliskiler": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kaynak", "kaynak_kolon", "hedef", "hedef_kolon"],
+              "additionalProperties": false,
+              "properties": {
+                "kaynak": {"type": "string"}, "kaynak_kolon": {"type": "string"},
+                "hedef": {"type": "string"}, "hedef_kolon": {"type": "string"},
+                "guven": {"enum": ["kesin", "dusuk"],
+                          "description": "kesin = yabancı anahtar; dusuk = ad benzerliği, onaylanmadan kullanılmaz."}
+              }
+            }
+          }
+        }
+      }
+    },
+    "olculer": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["ad", "ifade", "tablo"],
+        "additionalProperties": false,
+        "properties": {
+          "ad": {"type": "string"},
+          "ifade": {"type": "string", "minLength": 1},
+          "tablo": {"type": "string"},
+          "toplama": {"enum": ["sayim", "benzersiz_sayim", "toplam", "ortalama", "en_az", "en_cok"],
+                      "description": "ortalama YENİDEN TOPLANAMAZ; derleyici ortalamanın ortalamasını reddeder."},
+          "birim": {"type": "string"},
+          "kaynak_kosulu": {"type": ["string", "null"],
+                            "description": "EKSEN 2+3 — ör. \"olcum.tip = 'BOY'\". Ölçünün satırda mı kolonda mı durduğunu ve biriminin ne olduğunu buradan çözer."},
+          "gosterim": {"type": "string"},
+          "uyari": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "boyutlar": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["ad", "tablo", "kolon", "sozluk_karari"],
+        "additionalProperties": false,
+        "properties": {
+          "ad": {"type": "string"},
+          "tablo": {"type": "string"},
+          "kolon": {"type": "string"},
+          "gosterim": {"type": "string"},
+          "sozluk_karari": {"enum": ["sorulmadi", "var", "yok"]},
+          "sozluk": {"type": "object", "additionalProperties": {"type": "string"},
+                     "description": "ham deger -> gosterim. YALNIZ İNSAN ONAYLI değerler (SPEC A-4, K-3). Bu sözlük isteme konabilir; onaylanmamış hiçbir değer buraya yazılmaz."},
+          "tarih_mi": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}
