@@ -36,3 +36,7 @@ _yedek/
 .ruff_cache/
 *.db-journal
 yok-boyle-bir-dosya-yok.db
+
+# Silinmek uzere bir kenara alinanlar. Uzak oturumlar dosya SILEMEZ (yalnizca
+# tasiyabilir); silinecekler buraya birikir ve kullanici toptan siler.
+_to_delete/
