@@ -11,3 +11,4 @@ Karşılaştırma yalnız aynı test seti ve aynı model için anlamlıdır.
 | 2026-08-23 | `gemini-3.7-flash` | **%70** (71/101) | 30 (%100) | 2.3 | 4.8 | 0.0 | 42 | 8192 | açık | `259f50a (+islenmemis degisiklikler)` | accuracy-2026-08-23-gemini-3-7-flash-01.md |
 | 2026-08-27 | `gemini-3.7-flash` | **%69** (70/101) | 31 (%100) | 2.2 | 3.7 | 0.0 | 42 | 8192 | açık | `36d920c (+islenmemis degisiklikler)` | accuracy-2026-08-27-gemini-3-7-flash-01.md |
 | 2026-08-28 | `gemini-3.7-flash` | **%71** (72/101) | 29 (%100) | 2.6 | 4.2 | 0.0 | 42 | 8192 | açık | `36d920c (+islenmemis degisiklikler)` | accuracy-2026-08-28-gemini-3-7-flash-01.md |
+| 2026-08-29 | `gemini-3.7-flash` | **%72** (73/101) | 28 (%100) | 2.8 | 5.0 | 0.0 | 42 | 8192 | açık | `df0c989 (+islenmemis degisiklikler)` | accuracy-2026-08-29-gemini-3-7-flash-01.md |

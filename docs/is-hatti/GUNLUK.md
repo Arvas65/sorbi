@@ -7,6 +7,103 @@ Biçim: ne yapıldı · ne ölçüldü · ne açık kaldı · sıradaki.
 
 ---
 
+## 2026-08-28 — Hat beş gündür sessizce kopuktu: takılı `.git/index.lock`
+
+**Kim:** bulut oturumu · **Kapı:** yok — onarım, yeni iş paketi değil.
+
+### Bulgu (BULGU-16, ağır)
+
+`.git/index.lock` **2026-08-23 16:06'dan** beri diskte duruyordu. Sonucu:
+`gece-kosum.bat` her gece **ölçümü doğru koştu** ama `git add` adımı
+`fatal: Unable to create ... index.lock` ile düştü, `[gece] islenecek yeni
+kanit yok` yazıp çıktı. `olcum-otomatik` dalı **20260823-0300**'de dondu;
+bulut nöbeti beş gün boyunca beş günlük eski bir dalı okuyordu ve bunu
+fark edemedi — çünkü push hiç *başarısız* olmadı, hiç *denenmedi*.
+
+`PUSH-SORUNU.txt` bayrağı yalnız push düşerse yazılıyor. Buradaki hata
+push'tan önceydi; yani hattın kendi alarmı bu arızayı kapsamıyordu.
+
+**Kök neden — ders:** kilidi bırakan büyük olasılıkla *bulut oturumunun
+kendisiydi*. Bağlı klasörde `rm`/`unlink` yasak; git kendi kilit ve
+`tmp_obj_*` dosyalarını **silemiyor**, "Operation not permitted" alıyor ve
+kalıntıyı bırakıyor. Bu oturumda bir `git commit` + bir `git status` ile
+34 kalıntı üretildi ve elle taşınarak temizlendi.
+
+> Bu, §7'deki ortak paydanın bir örneği daha: *bir yerde geçerli olanın
+> başka yerde de geçerli olduğunu varsaymak.* Git, Windows'ta çalıştığı
+> gibi bağlı-klasör montajında çalışmıyor.
+
+**Kural (bulut oturumları için):** bağlı klasörde yazan git komutu
+çalıştırma. Okuma için `git --no-optional-locks <komut>`. Zorunluysa
+komuttan sonra `find .git -name '*.lock' -o -name 'tmp_obj_*'` boş
+dönene kadar temizle.
+
+### Yapıldı
+
+- Takılı kilit ve 34 git kalıntısı `_to_delete/git-kalinti/` altına taşındı
+  (silme izni yok; İhsan klasörü silebilir).
+- **BULGU-15 kalıntısı:** `.sorbi/connections.json` hâlâ takip ediliyordu —
+  `git rm --cached` ile çıkarıldı (`edddb7c`). Dosya **boş** (`{}`), sızan
+  bir sır yok; kapatılan şey sızabileceği yer. `.sorbi/` zaten
+  `.gitignore`'daydı ama takipteki dosyayı ignore kapsamaz.
+  Bu, `test_depo_hijyeni`'nin 08-23'ten beri her gece raporladığı tek
+  başarısız testti — süit yeşil değildi, kimse okuyamıyordu.
+- 08-23/08-27/08-28 kanıtları işlendi (`df0c989`). **Push edilmedi**;
+  bu gece 03:00 koşumu iter.
+
+### Ölçüldü
+
+Yeni ölçüm koşulmadı. Diskte duran ama işlenmemiş olan iki koşum:
+
+| Gün | Model | Acc | Sessiz yanlış | p95 | Kapı |
+|-----|-------|-----|---------------|-----|------|
+| 08-27 | `gemini-3.7-flash` (api) | %69,3 (70/101) | 31 (%100) | 3,7 sn | — |
+| 08-28 | `gemini-3.7-flash` (api) | %71,3 (72/101) | 29 (%100) | 4,2 sn | FARK YOK (McNemar p=0,688) |
+
+08-24, 08-25, 08-26 gecelerinde **hiç koşum kaydı yok** (gece log'u
+üretilmemiş) — makine kapalıydı sanılıyor, doğrulanmadı.
+
+### Açık kalan
+
+- **Ship kapısı: ADR-5 karar bölümü hâlâ boş.** Gece koşumu 08-22'den beri
+  `mod=api` ile ölçüyor; yani karar verilmemiş bir moda ait sayılar
+  birikiyor. Ayrıca bu modda **belirlenim mümkün değil** (uç nokta `seed`
+  tanımıyor, HTTP 400) — kanıt damgası bunu yazıyor.
+- Hattın "sessiz kopukluk" alarmı yok: push denenmediğinde hiçbir bayrak
+  yazılmıyor. Öneri (İP adayı): `SON-GECE-KOSUMU.txt` damgası N gündür
+  ilerlemiyorsa `kontrol.bat` açılışta bunu bağırsın.
+- Çalışma ağacında 24 dosyalık işlenmemiş değişiklik duruyor (08-23
+  oturumundan). Dokunulmadı.
+
+### İP-34 açıldı (B-7) — ve ilk iş kontrol yazmak değil
+
+İhsan B-7'yi seçti. İlk bakışta iş belliydi: sessiz yanlışın yalnız %21'i
+bayraklanıyor, yeni kontrol yaz. Kaçan 22 vaka tek tek okununca cetvelde
+bir şey çıktı — **BULGU-18**, ayrıntısı `v3/IP-34/BULGU.md`:
+
+`_normalize` satırı sonucu bütün olarak karşılaştırıyor; fazladan bir kolon
+koyan doğru cevap yanlış sayılıyor. 29 yanlışın **9'u** bu (08-27'de 8).
+Kolon-toleranslı sayımla accuracy %71,3 → %80,2, sessiz yanlış 29 → 20,
+B-7 %21 → %30.
+
+**G-11 karşılandı demek değildir** (Wilson GA %71–87, eşik içeride) ve 17
+vaka gerçekten yanlış. Ama şu kesin: o dokuz vakayı yakalayacak kontrol
+yazsaydık **doğru cevabı bayraklayan** kontrol yazmış olurduk. Payda
+doğrulanmadan kontrol yazılmaz.
+
+Öneri § 6'da: cetveli değiştirme, `dogru_toleransli` diye ikincisini ekle,
+rapor iki sayıyı birden yazsın. Karar İhsan'da — cetvel politikası SPEC'e
+dokunur.
+
+Eklenen: `tools/izdusum_denetimi.py` (ölçer, karar vermez).
+
+### Sıradaki
+
+Bu gece 03:00 koşumunun çıkış kodunu ve `olcum-otomatik` dalının
+ilerlediğini doğrula.
+
+---
+
 ## 2026-08-23 (gündüz) — İP-33: triyaj uygulandı, karne dürüstleşti
 
 **Kim:** bulut oturumu · **Kapı:** yok — Review triyajı İhsan'da tamamlandı,
