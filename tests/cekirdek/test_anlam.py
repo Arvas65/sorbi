@@ -115,9 +115,13 @@ def test_gecersiz_11_dusuk_guvenli_iliski_onaysiz():
 
 
 def test_gecersiz_12_hic_olay_tablosu_yok():
-    m = _tabloyu_degistir(gecerli_model(), "randevu",
-                          tur=Tur.VARLIK, olay_tarihi=None)
-    assert any("hiç olay tablosu yok" in s for s in m.dogrula())
+    """Modelde TEK bir olay tablosu bile kalmazsa hiçbir iş sorusu cevaplanamaz."""
+    from dataclasses import replace
+    m = gecerli_model()
+    yeni = {ad: (replace(t, tur=Tur.VARLIK, olay_tarihi=None) if t.olay_mi else t)
+            for ad, t in m.tablolar.items()}
+    assert any("hiç olay tablosu yok" in s
+               for s in replace(m, tablolar=yeni).dogrula())
 
 
 def test_gecersiz_13_surum_sifir():

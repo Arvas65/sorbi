@@ -23,16 +23,16 @@ def test_uydurulmus_olcu_adi_sqle_hic_donusmez():
     """v3'te model olmayan bir tablo/kolon uydurduğunda bu ancak SQL
     ayrıştırıldıktan sonra yakalanabiliyordu. Artık ad, sözlükte yoksa
     seçim hiç kurulmaz."""
-    s = Secim.kur(gecerli_model(), olculer=["ciro"])
+    s = Secim.kur(gecerli_model(), olculer=["yok_boyle_bir_olcu"])
     assert not s.kurulabilir
-    assert any("'ciro' diye bir ölçü yok" in g for g in s.gecersiz)
+    assert any("yok_boyle_bir_olcu' diye bir ölçü yok" in g for g in s.gecersiz)
     # Hata iletisi öz-onarım için besleyici olmalı: var olanları sayar.
     assert any("randevu_sayisi" in g for g in s.gecersiz)
 
 
 def test_bilinmeyen_boyut_reddedilir():
-    s = Secim.kur(gecerli_model(), olculer=["randevu_sayisi"], boyutlar=["sehir"])
-    assert any("'sehir' diye bir boyut yok" in g for g in s.gecersiz)
+    s = Secim.kur(gecerli_model(), olculer=["randevu_sayisi"], boyutlar=["yok_boyle_bir_boyut"])
+    assert any("yok_boyle_bir_boyut' diye bir boyut yok" in g for g in s.gecersiz)
 
 
 def test_sozluk_disi_filtre_degeri_reddedilir():

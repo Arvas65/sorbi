@@ -1,0 +1,1163 @@
+{
+  "ciro-cinsiyet-kirilim": {
+    "beklenen_sql": "SELECT\n  hasta.cinsiyet AS cinsiyet,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  hasta.cinsiyet",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 2,
+    "secim": {
+      "boyutlar": [
+        "cinsiyet"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura",
+      "hasta",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "filtre-arti-kirilim": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  ) AND fatura.odeme_durumu = 'ODENDI'\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [
+        {
+          "boyut": "odeme_durumu",
+          "degerler": [
+            "Ödendi"
+          ],
+          "islec": "esittir"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "filtre-esit-degil": {
+    "beklenen_sql": "SELECT\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.odeme_durumu <> 'ODENDI'",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [
+        {
+          "boyut": "odeme_durumu",
+          "degerler": [
+            "Ödendi"
+          ],
+          "islec": "esit_degil"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "filtre-esittir-gosterim": {
+    "beklenen_sql": "SELECT\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  ) AND hasta.cinsiyet = 'K'",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [
+        {
+          "boyut": "cinsiyet",
+          "degerler": [
+            "Kadın"
+          ],
+          "islec": "esittir"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "hasta",
+      "randevu"
+    ]
+  },
+  "filtre-esittir-ham": {
+    "beklenen_sql": "SELECT\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  ) AND hasta.cinsiyet = 'K'",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [
+        {
+          "boyut": "cinsiyet",
+          "degerler": [
+            "K"
+          ],
+          "islec": "esittir"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "hasta",
+      "randevu"
+    ]
+  },
+  "filtre-icerir": {
+    "beklenen_sql": "SELECT\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  ) AND hasta.sehir LIKE '%İst%'",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [
+        {
+          "boyut": "sehir",
+          "degerler": [
+            "İst"
+          ],
+          "islec": "icerir"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "hasta",
+      "randevu"
+    ]
+  },
+  "filtre-icinde": {
+    "beklenen_sql": "SELECT\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.odeme_durumu IN ('BEKLIYOR', 'GECIKTI')",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [
+        {
+          "boyut": "odeme_durumu",
+          "degerler": [
+            "Bekliyor",
+            "Gecikti"
+          ],
+          "islec": "icinde"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "filtre-iki-boyut": {
+    "beklenen_sql": "SELECT\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\n  AND hasta.cinsiyet = 'K'\n  AND doktor.unvan = 'Prof. Dr.'",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [
+        {
+          "boyut": "cinsiyet",
+          "degerler": [
+            "Kadın"
+          ],
+          "islec": "esittir"
+        },
+        {
+          "boyut": "unvan",
+          "degerler": [
+            "Prof. Dr."
+          ],
+          "islec": "esittir"
+        }
+      ],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "doktor",
+      "hasta",
+      "randevu"
+    ]
+  },
+  "iki-boyut": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  hasta.cinsiyet AS cinsiyet,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad,\n  hasta.cinsiyet",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 20,
+    "secim": {
+      "boyutlar": [
+        "bolum",
+        "cinsiyet"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "hasta",
+      "randevu"
+    ]
+  },
+  "iki-olcu-ayni-tablo": {
+    "beklenen_sql": "SELECT\n  SUM(fatura.tutar) AS ciro,\n  AVG(fatura.tutar) AS ortalama_fatura\nFROM fatura",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro",
+        "ortalama_fatura"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "iki-olcu-kirilimli": {
+    "beklenen_sql": "SELECT\n  fatura.odeme_durumu AS odeme_durumu,\n  SUM(fatura.tutar) AS ciro,\n  AVG(fatura.tutar) AS ortalama_fatura\nFROM fatura\nGROUP BY\n  fatura.odeme_durumu",
+    "gecerlilikler": [],
+    "satir_sayisi": 3,
+    "secim": {
+      "boyutlar": [
+        "odeme_durumu"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro",
+        "ortalama_fatura"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "islem-sayisi-bolume-gore": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  SUM(muayene_islem.adet) AS islem_sayisi\nFROM muayene_islem\nJOIN muayene\n  ON muayene_islem.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "islem_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "muayene",
+      "muayene_islem",
+      "randevu"
+    ]
+  },
+  "islem-sayisi-islem-adi": {
+    "beklenen_sql": "SELECT\n  islem.ad AS islem_adi,\n  SUM(muayene_islem.adet) AS islem_sayisi\nFROM muayene_islem\nJOIN islem\n  ON muayene_islem.islem_id = islem.islem_id\nGROUP BY\n  islem.ad",
+    "gecerlilikler": [],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "islem_adi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "islem_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "islem",
+      "muayene_islem"
+    ]
+  },
+  "kirilim-bolum": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "randevu"
+    ]
+  },
+  "kirilim-cinsiyet": {
+    "beklenen_sql": "SELECT\n  hasta.cinsiyet AS cinsiyet,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  hasta.cinsiyet",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 2,
+    "secim": {
+      "boyutlar": [
+        "cinsiyet"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "hasta",
+      "randevu"
+    ]
+  },
+  "kirilim-sehir": {
+    "beklenen_sql": "SELECT\n  hasta.sehir AS sehir,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  hasta.sehir",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 8,
+    "secim": {
+      "boyutlar": [
+        "sehir"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "hasta",
+      "randevu"
+    ]
+  },
+  "kirilim-unvan": {
+    "beklenen_sql": "SELECT\n  doktor.unvan AS unvan,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  doktor.unvan",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 4,
+    "secim": {
+      "boyutlar": [
+        "unvan"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "doktor",
+      "randevu"
+    ]
+  },
+  "limit": {
+    "beklenen_sql": "SELECT\n  doktor.unvan AS unvan,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  doktor.unvan\nORDER BY\n  randevu_sayisi DESC\nLIMIT 5",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 4,
+    "secim": {
+      "boyutlar": [
+        "unvan"
+      ],
+      "filtreler": [],
+      "limit": 5,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": "randevu_sayisi azalan",
+      "zaman": null
+    },
+    "tablolar": [
+      "doktor",
+      "randevu"
+    ]
+  },
+  "odenmemis-bolume-gore": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  SUM(CASE WHEN fatura.odeme_durumu <> 'ODENDI' THEN fatura.tutar END) AS odenmemis_ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "odenmemis_ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "ortalama-bolume-gore": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  AVG(fatura.tutar) AS ortalama_fatura\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ortalama_fatura"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "randevu-odeme-kirilim": {
+    "beklenen_sql": "SELECT\n  fatura.odeme_durumu AS odeme_durumu,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN muayene\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN fatura\n  ON fatura.muayene_id = muayene.muayene_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  fatura.odeme_durumu",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 3,
+    "secim": {
+      "boyutlar": [
+        "odeme_durumu"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "randevu-unvan-limit": {
+    "beklenen_sql": "SELECT\n  doktor.unvan AS unvan,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  doktor.unvan\nLIMIT 3",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 3,
+    "secim": {
+      "boyutlar": [
+        "unvan"
+      ],
+      "filtreler": [],
+      "limit": 3,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "doktor",
+      "randevu"
+    ]
+  },
+  "sirala-artan": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad\nORDER BY\n  bolum ASC",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": "bolum artan",
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "randevu"
+    ]
+  },
+  "sirala-azalan": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad\nORDER BY\n  randevu_sayisi DESC",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": "randevu_sayisi azalan",
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "randevu"
+    ]
+  },
+  "tam-kombinasyon": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  SUM(fatura.tutar) AS ciro,\n  AVG(fatura.tutar) AS ortalama_fatura\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\n  AND fatura.odeme_durumu IN ('ODENDI', 'BEKLIYOR')\n  AND fatura.tarih >= '2025-01-01'\n  AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  bolum.ad\nORDER BY\n  ciro DESC\nLIMIT 10",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [
+        {
+          "boyut": "odeme_durumu",
+          "degerler": [
+            "Ödendi",
+            "Bekliyor"
+          ],
+          "islec": "icinde"
+        }
+      ],
+      "limit": 10,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro",
+        "ortalama_fatura"
+      ],
+      "sema_surumu": 1,
+      "sirala": "ciro azalan",
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "ay"
+      }
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "tek-olcu": {
+    "beklenen_sql": "SELECT\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "randevu"
+    ]
+  },
+  "tek-olcu-ciro": {
+    "beklenen_sql": "SELECT\n  SUM(fatura.tutar) AS ciro\nFROM fatura",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "tek-olcu-islem": {
+    "beklenen_sql": "SELECT\n  SUM(muayene_islem.adet) AS islem_sayisi\nFROM muayene_islem",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "islem_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "muayene_islem"
+    ]
+  },
+  "tek-olcu-kaynak-kosullu": {
+    "beklenen_sql": "SELECT\n  SUM(CASE WHEN fatura.odeme_durumu <> 'ODENDI' THEN fatura.tutar END) AS odenmemis_ciro\nFROM fatura",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "odenmemis_ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "tek-olcu-ortalama": {
+    "beklenen_sql": "SELECT\n  AVG(fatura.tutar) AS ortalama_fatura\nFROM fatura",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ortalama_fatura"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "uc-boyut": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  doktor.unvan AS unvan,\n  fatura.odeme_durumu AS odeme_durumu,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad,\n  doktor.unvan,\n  fatura.odeme_durumu",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 63,
+    "secim": {
+      "boyutlar": [
+        "bolum",
+        "unvan",
+        "odeme_durumu"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "zaman-arti-kirilim": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\n  AND fatura.tarih >= '2025-01-01'\n  AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "ay"
+      }
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "zaman-ay": {
+    "beklenen_sql": "SELECT\n  STRFTIME('%Y-%m', fatura.tarih) AS fatura_tarihi,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.tarih >= '2025-01-01' AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  STRFTIME('%Y-%m', fatura.tarih)",
+    "gecerlilikler": [],
+    "satir_sayisi": 19,
+    "secim": {
+      "boyutlar": [
+        "fatura_tarihi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "ay"
+      }
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zaman-ceyrek": {
+    "beklenen_sql": "SELECT\n  STRFTIME('%Y', fatura.tarih) || '-Q' || CAST((\n    CAST(STRFTIME('%m', fatura.tarih) AS INTEGER) + 2\n  ) / 3 AS TEXT) AS fatura_tarihi,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.tarih >= '2025-01-01' AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  STRFTIME('%Y', fatura.tarih) || '-Q' || CAST((\n    CAST(STRFTIME('%m', fatura.tarih) AS INTEGER) + 2\n  ) / 3 AS TEXT)",
+    "gecerlilikler": [],
+    "satir_sayisi": 7,
+    "secim": {
+      "boyutlar": [
+        "fatura_tarihi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "ceyrek"
+      }
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zaman-gun": {
+    "beklenen_sql": "SELECT\n  STRFTIME('%Y-%m-%d', fatura.tarih) AS fatura_tarihi,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.tarih >= '2025-01-01' AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  STRFTIME('%Y-%m-%d', fatura.tarih)",
+    "gecerlilikler": [],
+    "satir_sayisi": 544,
+    "secim": {
+      "boyutlar": [
+        "fatura_tarihi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "gun"
+      }
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zaman-hafta": {
+    "beklenen_sql": "SELECT\n  STRFTIME('%Y-W%W', fatura.tarih) AS fatura_tarihi,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.tarih >= '2025-01-01' AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  STRFTIME('%Y-W%W', fatura.tarih)",
+    "gecerlilikler": [],
+    "satir_sayisi": 80,
+    "secim": {
+      "boyutlar": [
+        "fatura_tarihi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "hafta"
+      }
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zaman-kirilimsiz": {
+    "beklenen_sql": "SELECT\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.tarih >= '2025-01-01' AND fatura.tarih <= '2026-12-31'",
+    "gecerlilikler": [],
+    "satir_sayisi": 1,
+    "secim": {
+      "boyutlar": [],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "ay"
+      }
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zaman-randevu": {
+    "beklenen_sql": "SELECT\n  STRFTIME('%Y-%m', randevu.tarih) AS randevu_tarihi,\n  COUNT(DISTINCT randevu.randevu_id) AS randevu_sayisi\nFROM randevu\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\n  AND randevu.tarih >= '2025-01-01'\n  AND randevu.tarih <= '2026-12-31'\nGROUP BY\n  STRFTIME('%Y-%m', randevu.tarih)",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 19,
+    "secim": {
+      "boyutlar": [
+        "randevu_tarihi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "randevu_sayisi"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "ay"
+      }
+    },
+    "tablolar": [
+      "randevu"
+    ]
+  },
+  "zaman-yil": {
+    "beklenen_sql": "SELECT\n  STRFTIME('%Y', fatura.tarih) AS fatura_tarihi,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nWHERE\n  fatura.tarih >= '2025-01-01' AND fatura.tarih <= '2026-12-31'\nGROUP BY\n  STRFTIME('%Y', fatura.tarih)",
+    "gecerlilikler": [],
+    "satir_sayisi": 2,
+    "secim": {
+      "boyutlar": [
+        "fatura_tarihi"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": {
+        "baslangic": "2025-01-01",
+        "bitis": "2026-12-31",
+        "ifade": "tum donem",
+        "tane": "yil"
+      }
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zincir-ciro-bolum": {
+    "beklenen_sql": "SELECT\n  bolum.ad AS bolum,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nJOIN bolum\n  ON doktor.bolum_id = bolum.bolum_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  bolum.ad",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 10,
+    "secim": {
+      "boyutlar": [
+        "bolum"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "bolum",
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "zincir-ciro-odeme": {
+    "beklenen_sql": "SELECT\n  fatura.odeme_durumu AS odeme_durumu,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nGROUP BY\n  fatura.odeme_durumu",
+    "gecerlilikler": [],
+    "satir_sayisi": 3,
+    "secim": {
+      "boyutlar": [
+        "odeme_durumu"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura"
+    ]
+  },
+  "zincir-ciro-sehir": {
+    "beklenen_sql": "SELECT\n  hasta.sehir AS sehir,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN hasta\n  ON randevu.hasta_id = hasta.hasta_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  hasta.sehir",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 8,
+    "secim": {
+      "boyutlar": [
+        "sehir"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "fatura",
+      "hasta",
+      "muayene",
+      "randevu"
+    ]
+  },
+  "zincir-ciro-unvan": {
+    "beklenen_sql": "SELECT\n  doktor.unvan AS unvan,\n  SUM(fatura.tutar) AS ciro\nFROM fatura\nJOIN muayene\n  ON fatura.muayene_id = muayene.muayene_id\nJOIN randevu\n  ON muayene.randevu_id = randevu.randevu_id\nJOIN doktor\n  ON randevu.doktor_id = doktor.doktor_id\nWHERE\n  (\n    randevu.durum <> 'IPTAL'\n  )\nGROUP BY\n  doktor.unvan",
+    "gecerlilikler": [
+      "randevu: randevu.durum <> 'IPTAL'"
+    ],
+    "satir_sayisi": 4,
+    "secim": {
+      "boyutlar": [
+        "unvan"
+      ],
+      "filtreler": [],
+      "limit": null,
+      "model_surumu": 3,
+      "olculer": [
+        "ciro"
+      ],
+      "sema_surumu": 1,
+      "sirala": null,
+      "zaman": null
+    },
+    "tablolar": [
+      "doktor",
+      "fatura",
+      "muayene",
+      "randevu"
+    ]
+  }
+}

@@ -21,14 +21,21 @@ yüklenmez (`validator.py`'nin kapı sözleşmesiyle aynı kalıp).
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import Any
 
-from app.cekirdek.tipler import Iliski, IliskiGuveni, Karar, Toplama, Tur
+from app.cekirdek.tipler import Iliski, IliskiGuveni, Karar, Kardinalite, Toplama, Tur
 
-SEMA_SURUMU = 1          # bu DOSYA biçiminin sürümü; modelin kendi sürümü ayrı
+SEMA_SURUMU = 2          # bu DOSYA biçiminin sürümü; modelin kendi sürümü ayrı
+# Sürüm 2 (2026-08-30): `Olcu.ifade` artık toplama fonksiyonu içermez ve
+# `Iliski.kardinalite` zorunlu oldu. Sürüm 1 dosyaları göç ister.
+
+# Ölçü ifadesinde toplama fonksiyonu aranır — bulunursa model geçersizdir.
+_TOPLAMA_ICERIR = re.compile(
+    r"\b(count|sum|avg|min|max|group_concat|string_agg)\s*\(", re.IGNORECASE)
 
 
 def _donmus(d: Mapping[str, Any] | None) -> Mapping[str, Any]:
@@ -49,7 +56,12 @@ class Olcu:
     """Sayılabilir bir şey. Model bunu ADIYLA seçer, ifadesini görmez."""
 
     ad: str
-    ifade: str                            # ör. "COUNT(DISTINCT muayene.muayene_id)"
+    # TOPLANACAK ifade — toplama fonksiyonu İÇERMEZ. ör. "muayene.muayene_id"
+    # Toplama fonksiyonunu `toplama` alanına bakarak DERLEYİCİ koyar.
+    # Gerekçe (2026-08-30): ifade tam toplamayı taşırsa `toplama` alanıyla
+    # çelişebilir ve `kaynak_kosulu` doğru uygulanamaz — CASE WHEN sarması
+    # toplama fonksiyonunun İÇİNE girmek zorundadır.
+    ifade: str
     tablo: str                            # hangi tabloya ait (JOIN yolu bundan çıkar)
     toplama: Toplama = Toplama.SAYIM
     birim: str = ""
@@ -187,6 +199,15 @@ class AnlamModeli:
                     s.append(f"'{ad}': olay tablosu ama olay tarihi kolonu seçilmemiş. "
                              "'Ne zaman oldu' sorusunun cevabı olmadan zaman "
                              "filtresi uygulanamaz.")
+                elif "." in t.olay_tarihi:
+                    # Nitelenmiş: olay zamanını 1:1 bağlı başka bir tablodan
+                    # miras alır. Gerçek şemalarda sık: `muayene`nin kendi
+                    # tarihi yoktur, `randevu.tarih`ten gelir (ölçüldü,
+                    # demo/hospital.db, 2026-08-30).
+                    kaynak_tablo = t.olay_tarihi.split(".", 1)[0]
+                    if kaynak_tablo not in self.tablolar:
+                        s.append(f"'{ad}': olay tarihi modelde olmayan "
+                                 f"'{kaynak_tablo}' tablosunu gösteriyor.")
                 elif t.kolonlar and t.olay_tarihi not in t.kolonlar:
                     s.append(f"'{ad}': olay tarihi olarak '{t.olay_tarihi}' seçilmiş "
                              f"ama bu tabloda böyle bir kolon yok.")
@@ -209,6 +230,10 @@ class AnlamModeli:
                 if i.hedef not in self.tablolar:
                     s.append(f"'{ad}': ilişki modelde olmayan '{i.hedef}' "
                              "tablosuna gidiyor.")
+                if i.kardinalite is Kardinalite.OLCULMEDI:
+                    s.append(f"'{ad}': '{i.hedef}' ilişkisinin kardinalitesi "
+                             "ölçülmemiş. Ölçülmeden birleştirme yapılamaz — "
+                             "çoğaltıp çoğaltmadığı bilinmiyor.")
                 if i.guven is IliskiGuveni.DUSUK:
                     s.append(f"'{ad}': '{i.hedef}' ilişkisi ad benzerliğinden "
                              "türetilmiş ve onaylanmamış. Onaylayın ya da silin.")
@@ -220,6 +245,11 @@ class AnlamModeli:
                 s.append(f"'{ad}' ölçüsü modelde olmayan '{o.tablo}' tablosuna dayanıyor.")
             if not (o.ifade or "").strip():
                 s.append(f"'{ad}' ölçüsünün ifadesi boş.")
+            elif _TOPLAMA_ICERIR.search(o.ifade):
+                s.append(f"'{ad}' ölçüsünün ifadesi bir toplama fonksiyonu içeriyor "
+                         f"('{o.ifade}'). İfade yalnız TOPLANACAK değeri yazar; "
+                         "toplamayı derleyici koyar (yoksa kaynak koşulu doğru "
+                         "uygulanamaz ve `toplama` alanıyla çelişebilir).")
 
         for ad, b in self.boyutlar.items():
             if ad != b.ad:
@@ -267,7 +297,8 @@ class AnlamModeli:
                     "iliskiler": [
                         {"kaynak": i.kaynak, "kaynak_kolon": i.kaynak_kolon,
                          "hedef": i.hedef, "hedef_kolon": i.hedef_kolon,
-                         "guven": i.guven.value}
+                         "guven": i.guven.value,
+                         "kardinalite": i.kardinalite.value}
                         for i in t.iliskiler
                     ],
                 } for a, t in sorted(self.tablolar.items())
@@ -306,7 +337,8 @@ class AnlamModeli:
                 iliskiler=tuple(
                     Iliski(kaynak=i["kaynak"], kaynak_kolon=i["kaynak_kolon"],
                            hedef=i["hedef"], hedef_kolon=i["hedef_kolon"],
-                           guven=IliskiGuveni(i.get("guven", "kesin")))
+                           guven=IliskiGuveni(i.get("guven", "kesin")),
+                           kardinalite=Kardinalite(i.get("kardinalite", "olculmedi")))
                     for i in t.get("iliskiler", ())
                 ),
             ) for a, t in (d.get("tablolar") or {}).items()

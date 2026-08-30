@@ -155,10 +155,13 @@ def test_yeni_kolon_yalniz_o_tabloyu_sorar():
 def test_yeni_tablo_sorulacaklara_girer():
     m = gecerli_model()
     s = guncel_sema(m)
-    s["fatura"] = ("fatura_id", "tutar")
+    # Modelde OLMAYAN bir tablo seçilmeli; fixture büyüdükçe var olan bir
+    # adı "yeni" sanmak testi sessizce anlamsızlaştırır.
+    assert "yatis" not in m.tablolar
+    s["yatis"] = ("yatis_id", "hasta_id", "giris_tarihi")
     f = fark(m, s)
-    assert f.yeni_tablolar == ("fatura",)
-    assert "fatura" in f.sorulacak_tablolar
+    assert f.yeni_tablolar == ("yatis",)
+    assert "yatis" in f.sorulacak_tablolar
 
 
 def test_kaybolan_kolon_boyutu_bozar():

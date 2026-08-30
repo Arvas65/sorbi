@@ -7,6 +7,168 @@ Biçim: ne yapıldı · ne ölçüldü · ne açık kaldı · sıradaki.
 
 ---
 
+## 2026-08-30 (öğleden sonra) — A-2 ön-doldurma: taslak gerçek şemada üç sessiz yanlış üretti
+
+**Kim:** bulut oturumu · **Kapı:** Faz 1 sürüyor (İP-51'in yarısı, İP-49 kapandı).
+
+### Ne yapıldı
+
+`app/cekirdek/on_doldurma.py` (A-2) yazıldı: şemadan anlam modeli önerisi.
+50 test (`tests/cekirdek/test_on_doldurma.py`). İP-49'un son yapısal
+güvencesi de eklendi — derleyici hiçbir yolda `SELECT *` üretemez.
+
+### Testi yazarken çıkan asıl iş
+
+Modül yazıldı, testler yazılmadan önce **gerçek şema üzerinde bir kez
+çalıştırıldı**. Üç sessiz yanlış oradan çıktı; ne tip sistemi, ne
+`dogrula()`, ne de bir birim testi yakalardı.
+
+**BULGU-21 — dolu alan, sorulmamış soru.**
+Taslak `olay_tarihi`ni en güçlü adayla DOLDURUYORDU. `hasta` tablosunda
+sonuç `olay_tarihi = dogum_tarihi` oldu: hastalar doğum tarihine göre
+sayılırdı. Daha kötüsü, `acik_sorular()` bunu **sormuyordu** — alan dolu
+olduğu için `dogrula()` şikâyet etmiyor, sihirbaz da göstermiyordu.
+Dolu bir alan, alınmış bir karar gibi okunur. Eksen 7 için "doldur ve sor"
+diye bir kip yok: ya karar insanındır ya değildir.
+*Cure:* `oner()` artık `olay_tarihi=None` bırakıyor; adaylar ayrı bir
+`Oneri.tarih_adaylari` alanında sıralı olarak duruyor ve soru her zaman
+soruluyor. Modülün kendi başlığındaki kural ("öneri geçerli bir model
+değildir") ilk kez gerçekten tutuyor.
+
+**BULGU-22 — aşırı maskeleme körlük üretir.**
+`^ad$` koşulsuz kişisel veri sayılıyordu; `bolum.ad` ve `islem.ad` de
+maskelendi. Şemanın gruplanabilir tek okunabilir etiketleri yok oldu —
+"bölüme göre ciro" sorulamaz hâle geldi. Gizlilik değil körlük.
+*Cure:* güçlü im (`tckn`, `soyad`, `telefon`…) tek başına maskeler; zayıf
+im (`ad`) yalnız tabloda güçlü bir im daha varsa sayılır. `hasta.ad`
+maskeleniyor, `bolum.ad` maskelenmiyor. Maskeleme `dogrula()`'nın
+şikâyet etmediği bir tahmin olduğu için sihirbaz artık onu da **soruyor**.
+
+**BULGU-23 — anahtarlar boyut oldu.**
+32 boyutun yarısı `hasta_id`, `randevu_id`, `bolum_id` idi. Kimse
+`hasta_id`'ye göre gruplamaz; eşleyicinin sözlüğü gürültüyle doluyordu.
+`_ANAHTAR` deseni yalnız ölçü tarafında kullanılıyor, boyut tarafında
+kullanılmıyordu.
+*Cure:* anahtarlar ve serbest metin (`notlar`, `aciklama`) boyut olamaz;
+tarih boyutları her zaman nitelenir (`fatura_tarih`, çıplak `tarih` değil).
+
+Ayrıca: `kayit_tarihi`nin "en sonda" olma niyeti **koda geçmemişti** —
+genel `_tarihi$` kalıbı onu önce yakalıyor, özel kural hiç çalışmıyordu.
+İki tablo türü tahmini de düzeltildi (`hasta`/`bolum` artık varlık;
+`muayene` yayılımla olay).
+
+### Ölçüldü
+
+| Ne | Önce | Sonra |
+|---|---|---|
+| Tablo türü doğruluğu (`hospital.db`, 9 tablo) | 6/9 | **8/9** |
+| Boyut sayısı (anlamlı olan / toplam) | 15/32 | **15/15** |
+| Varlık tablosuna atanan olay tarihi | 2 | **0** |
+| Maskelenen etiket kolonu (`bolum.ad`, `islem.ad`) | 2 | **0** |
+
+Kalan tek tür hatası `doktor` (FK'si ve `ise_baslama` tarihi var).
+Sessiz değil: sihirbaz türü de olay tarihini de açıkça soruyor, düzeltmesi
+bir tık.
+
+Testler: 47 yeni + 3 (İP-49) = **50**; ruff temiz; çekirdek 241/241 yeşil.
+
+### İki testin şekli
+
+- **Kapsama:** `dogrula()` bir tablo için şikâyet ediyorsa `acik_sorular()`
+  o tablo için soru üretmek zorunda.
+- **Yeterlilik:** sihirbaz taklit edilip her soruya cevap veriliyor ve
+  modelin GERÇEKTEN geçerli hâle geldiği gösteriliyor.
+
+İkincisi bir açık buldu: `muayene_islem`in olay tarihi iki sıçrama ötede
+(`randevu.tarih`) ve öneri hiçbir aday sunmuyordu — kullanıcı cevabı
+bilmeden sihirbazı geçemezdi. Adaylar artık komşulardan da toplanıyor
+(genişlik-öncelikli, en yakın katman kazanır).
+
+### Açık
+
+- **A-2'nin IO yarısı yazılmadı:** `app/baglanti/sema_kaynagi.py` —
+  benzersizlik ve farklı-değer ölçümlerini yapan `SemaKaynagi`. Ölçüm
+  gelmeden her ilişki `OLCULMEDI` kalıyor ve hiçbir model geçerli olamıyor.
+- İP-52 (sihirbaz), İP-53 (eşleyici) sırada.
+- İP-54 (Sınır 1/2 + kanarya), İP-43 (yürütücü sözleşmesi) İhsan'da.
+
+### Sıradaki
+
+`kontrol.bat` — sonra `sema_kaynagi.py`.
+
+---
+
+## 2026-08-30 — İP-47 derleyici: kardinalite modele girdi
+
+**Kim:** bulut oturumu (İhsan yazım rolünü devretti) · **Kapı:** Faz 1 sürüyor.
+
+### Ölçüm önce, tasarım sonra
+
+"Zincir mi fan-out mu" sorusu tartışılmadı, `demo/hospital.db` üzerinde ölçüldü:
+
+| Ne | Sonuç |
+|---|---|
+| `randevu 6000 -> muayene 4182 -> fatura 4182` | JOIN sonrası **4182** — gerçek 1:1 zincir, çoğaltmıyor |
+| Toplam ciro | 14.574.050 |
+| Aynı ciro, `muayene_islem` üzerinden | **34.222.000 — 2,35x şişme** |
+
+Yani "tek olay tablosu" sınırı fazla dardı (zinciri yasaklardı) ama sınırsız
+birleştirme de canlı bir sessiz yanlış üretiyordu. İkisini ayıran kural
+**kardinalite**: her ilişki `kaynak -> hedef` yönünde `1:1 / n:1 / n:n /
+olculmedi` taşıyor; derleyici yalnız çoğaltmayan yönde yürüyor.
+`OLCULMEDI` modeli GEÇERSİZ yapıyor — `Karar` enum'ındaki "sorulmadı ile
+cevabı yok aynı değildir" ilkesinin birleştirme tarafı.
+
+**Kardinalite tahmin edilmez, ÖLÇÜLÜR** (`COUNT(*)` vs `COUNT(DISTINCT)`).
+Sihirbaz kurulumda ölçüp modele yazacak.
+
+### Yapıldı
+
+`app/cekirdek/derleyici.py` — `Secim + AnlamModeli -> SQL`. Otomatik ve
+zorunlu: geçerlilik filtresi, doğru olay tarihi, modelden gelen JOIN yolu,
+toplama kuralı, maskeli kolon reddi, sqlglot ile lehçe çevirisi.
+**44 altın çift**, hepsi gerçek `hospital.db`'de koşuyor. Çekirdek 191 test.
+
+Sayısal doğrulama: "bölüme göre ciro" toplamı = 14.574.050 = elle hesaplanan
+(iptal hariç, zincir üzerinden). Şişme yok.
+
+### Üç hata yakalandı — üçü de KOŞTURMAKLA
+
+**1. Kendi anlam modelim yanlıştı.** İlk 43 altın çiftin **29'u** gerçek
+veritabanında patladı: `randevu.iptal` diye bir kolon yok (`durum <> 'IPTAL'`),
+`muayene_islem`'in vekil anahtarı yok (`adet` var). Ne tip sistemi, ne
+`dogrula()`, ne altın çiftlerin kendisi yakaladı — **yalnız koşturmak.**
+SPEC R-6'nın canlı kanıtı ve kurbanı bu kez Claude oldu.
+*Sonuç:* altın çiftler artık metin olarak karşılaştırılmıyor, gerçek
+veritabanında da **koşuyor** (`test_altin_cift_gercek_veritabaninda_kosar`).
+
+**2. Filtre tablosu JOIN edilmiyordu.** `hasta.cinsiyet` filtresi üretiliyor,
+`JOIN hasta` yoktu. Duman testi yakaladı. Artık yapısal bir test var: SQL'de
+atıf yapılan her tablo birleştirilmiş olmalı.
+
+**3. Gerçek şema bir tasarım eksiği gösterdi.** `muayene`'nin kendi tarihi yok;
+zamanı `randevu`'dan miras alıyor. `olay_tarihi` artık nitelenmiş olabiliyor
+(`"randevu.tarih"`) ve derleyici gereken tabloyu güvenli yolla kendisi ekliyor
+— reddetmek "bu yıl kaç işlem yapıldı"yı cevapsız bırakırdı.
+
+### Sözleşme değişikliği — şema sürümü 2
+
+`Olcu.ifade` artık toplama fonksiyonu **içermiyor** (`fatura.tutar`, `SUM(...)`
+değil). Sebep: `toplama` alanıyla çelişebiliyordu ve `kaynak_kosulu` doğru
+uygulanamıyordu — `CASE WHEN` toplamanın İÇİNE girmek zorunda. Toplama içeren
+ifade modeli geçersiz yapıyor.
+
+### Ders — yokluğa dayanan test kırılgandır
+
+Örnek modeli gerçek şemaya genişletince **6 test düştü ve altısı da eskimiş
+beklentiydi, sıfır gerçek hata**: `ciro`, `sehir`, `fatura` "yok" varsayan
+testler artık var olan adları kullanıyordu. Düzeltme yalnız ad değiştirmek
+değil, ilke: bir şeyin YOKLUĞUNA dayanan test, asla var olamayacak bir ad
+kullanmalı (`yok_boyle_bir_olcu`). Büyüyen bir fixture, yoksa testleri
+sessizce anlamsızlaştırır.
+
+---
+
 ## 2026-08-29 — v4 başladı: Kapı 1 onaylandı, İP-46 (çekirdek) yazıldı
 
 **Kim:** bulut oturumu · **Kapı:** KAPI 1 geçildi (İhsan: ONAY).

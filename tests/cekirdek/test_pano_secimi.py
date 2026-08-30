@@ -92,7 +92,7 @@ def test_bos_sonuc_grafik_uretmez():
 
 def test_kurulamayan_secim_grafik_uretmez():
     m = gecerli_model()
-    s = Secim.kur(m, olculer=["ciro"])
+    s = Secim.kur(m, olculer=["yok_boyle_bir_olcu"])
     assert grafik_sec(s, m, 10) is GrafikTipi.YOK
 
 
@@ -118,9 +118,9 @@ def test_hatali_sorgu_sebebiyle_gelir():
 
 def test_kurulamayan_secimin_gerekcesi_karta_gecer():
     m = gecerli_model()
-    s = Secim.kur(m, olculer=["ciro"])
+    s = Secim.kur(m, olculer=["yok_boyle_bir_olcu"])
     p = parca(s, m, sonuc(0))
-    assert any("ciro" in n for n in p.notlar)
+    assert any("yok_boyle_bir_olcu" in n for n in p.notlar)
 
 
 def test_eksik_kartlar_planda_listelenir():

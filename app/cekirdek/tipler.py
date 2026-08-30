@@ -77,6 +77,35 @@ class Karar(str, Enum):
     YOK = "yok"
 
 
+class Kardinalite(str, Enum):
+    """Bir ilişkinin `kaynak -> hedef` yönündeki çokluğu.
+
+    Neden modelde duruyor: birleştirme yönü, bir ölçünün ÇOĞALIP çoğalmayacağını
+    belirler ve bu, sessiz yanlışın en pahalı türüdür. Ölçüldü (2026-08-30,
+    demo/hospital.db): `fatura` ile `muayene_islem` birleştirildiğinde toplam
+    ciro 14.574.050 -> 34.222.000, yani **2,35 kat** şişiyor. Sorgu çalışır,
+    tablo döner, sayı yanlıştır.
+
+    `OLCULMEDI` modeli GEÇERSİZ yapar. Ölçülmedi ile çoğaltmaz aynı şey
+    değildir — `Karar` enum'ındaki ayrımın birleştirme tarafındaki karşılığı.
+    """
+
+    BIR_BIR = "1:1"        # her iki yön de güvenli (randevu <-> muayene)
+    COK_BIR = "n:1"        # kaynak->hedef güvenli, ters yön çoğaltır (randevu -> doktor)
+    COK_COK = "n:n"        # iki yön de çoğaltır — birleştirme reddedilir
+    OLCULMEDI = "olculmedi"
+
+    @property
+    def ileri_guvenli(self) -> bool:
+        """kaynak -> hedef yönünde birleştirme ölçüyü çoğaltır mı?"""
+        return self in (Kardinalite.BIR_BIR, Kardinalite.COK_BIR)
+
+    @property
+    def geri_guvenli(self) -> bool:
+        """hedef -> kaynak yönünde? Yalnız 1:1'de güvenli."""
+        return self is Kardinalite.BIR_BIR
+
+
 class IliskiGuveni(str, Enum):
     """Bir ilişkinin nereden geldiği.
 
@@ -119,6 +148,7 @@ class Iliski:
     hedef: str
     hedef_kolon: str
     guven: IliskiGuveni = IliskiGuveni.KESIN
+    kardinalite: Kardinalite = Kardinalite.OLCULMEDI
 
 
 @dataclass(frozen=True)
