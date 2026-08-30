@@ -227,6 +227,43 @@ Not: o 66 dosyanın içinde `tests/conftest.py`, `tests/test_audit_guven.py`,
 push hedefi **yürürlükteki daldan** alınmalı (`git rev-parse --abbrev-ref HEAD`),
 sabit yazılmamalı.
 
+### İtildi — disk = depo = uzak
+
+`ip-46-cekirdek` yedi temiz commit'le `origin`'e itildi (ec310ea…56f1986).
+Yanlış etiketli `bf39faa` mega-commit'i `reset --soft` ile bölündü; hiçbir şey
+itilmemişti, yani geçmiş güvenle düzeltildi. **Bu projede uzun zamandır ilk kez
+çalışma ağacı, depo ve uzak depo aynı şeyi söylüyor** — BULGU-01, 16 ve 20'nin
+üçü de tam olarak bu boşluk hakkındaydı.
+
+### A-5 — anlam modeli deposu (İP-51'in ilk yarısı)
+
+`app/baglanti/anlam_deposu.py`: `DosyaAnlamDeposu` (ADR-9'un `anlam/` dizini)
++ `fark()` (şema kayması). stdlib'den başka bir şey istemiyor, dolayısıyla
+sihirbazın kayma mantığı LLM'siz ve DB'siz sınanabiliyor. 17 test; çekirdek
+toplamı 86, 0,27 sn.
+
+Üç tasarım kararı, gerekçeleriyle:
+
+**Okuma kapalı devre, yazma yüksek sesli.** `oku()` bozuk dosyada `None`
+döner — dosyayı bir insan elle düzenlemiş olabilir, bu beklenen bir durumdur.
+`yaz()` geçersiz modelde İSTİSNA FIRLATIR — oraya gelen model sihirbazın
+ürettiğidir, güvenilmeyen girdi değil; sessizce yazmamak veri kaybı olurdu.
+Asimetri bilinçli: sınırda kapalı devre, içeride yüksek ses.
+
+**Yazma atomik.** Geçici dosyaya yaz, sonra yerine taşı. Yarıda kesilmiş bir
+model dosyası ürünü kullanılamaz hâle getirir; bu hâliyle kesilme anında eski
+sürüm bozulmadan yerinde durur.
+
+**Bağlantı adı dosya adına dönüşüyor, yani yol kaçışına kapalı olmalı.**
+`slug()` yalnız harf/rakam/tire bırakır; `../../etc/passwd` ve
+`..\..\windows\system32` için testi var. Bağlantı adı kullanıcıdan geliyor.
+
+`fark()` yeni kolonu zararsız, KAYBOLAN kolonu bozucu sayıyor: kaybolan bir
+kolona dayanan ölçü/boyut sessiz yanlış üretmez, patlar — ama patlamadan önce
+yakalanmalı. Sihirbaz yalnız `sorulacak_tablolar`ı sorar; tüm modeli baştan
+sormak, bir kolon eklendiği için kullanıcıyı yarım saatlik oturuma geri
+göndermek olurdu.
+
 ### Açık kaldı
 
 - **BULGU-15** — admin parolası hâlâ uzak depo geçmişinde. İhsan'ın işi.
