@@ -132,13 +132,46 @@ def test_dogum_tarihi_referans_gunu_bozmaz():
     assert veri_gunu() > "2025-01-01"
 
 
-def test_veritabani_okunamazsa_yedek_gune_duser(monkeypatch):
+def _gun_dus(monkeypatch, url: str):
     from app import config as cfg
     from eval import tarih_sabitle as ts
     monkeypatch.setattr(cfg, "BUGUN", "")
     monkeypatch.setattr(ts, "_ONBELLEK", {})
-    monkeypatch.setattr(cfg, "DB_URL", "sqlite:///yok-boyle-bir-dosya-yok.db")
-    assert ts.olcum_gunu() == ts.YEDEK_GUN
+    monkeypatch.setattr(cfg, "DB_URL", url)
+    return ts.olcum_gunu(), ts.YEDEK_GUN
+
+
+def test_veritabani_acilamazsa_yedek_gune_duser(monkeypatch, tmp_path):
+    """Açılamayan yol: SQLite dosyayı oluşturamaz, hata verir.
+
+    Bu test eskiden `sqlite:///yok-boyle-bir-dosya-yok.db` diyordu — ve
+    SQLite o dosyayı **depo kökünde oluşturuyordu**. Yani ilk koşumda
+    "dosya yok" hâli sınanıyor, ikinci koşumdan itibaren artık boş bir
+    veritabanı sınanıyordu: testin ne ölçtüğü kaçıncı kez koştuğuna
+    bağlıydı. Ürettiği çöp dosya da `.gitignore`'a eklenerek görünmez
+    kılınmıştı — hata düzeltilmemiş, susturulmuştu.
+
+    Olmayan bir DİZİN içindeki yol bu belirsizliği kaldırır: SQLite ara
+    dizin yaratmaz, açılış başarısız olur, hiçbir şey oluşmaz.
+    """
+    yok = tmp_path / "olmayan-dizin" / "x.db"
+    bulunan, yedek = _gun_dus(monkeypatch, f"sqlite:///{yok}")
+    assert bulunan == yedek
+    assert not yok.exists()                  # yan etki yok
+    assert not yok.parent.exists()
+
+
+def test_bos_veritabani_yedek_gune_duser(monkeypatch, tmp_path):
+    """Açılabilen ama tablosuz bir veritabanı da bir gün türetemez.
+
+    Eski testin ikinci koşumdan sonra KAZAYLA ölçtüğü hâl buydu. Artık
+    kazayla değil, adıyla ölçülüyor.
+    """
+    import sqlite3
+    bos = tmp_path / "bos.db"
+    sqlite3.connect(bos).close()
+    bulunan, yedek = _gun_dus(monkeypatch, f"sqlite:///{bos}")
+    assert bulunan == yedek
 
 
 def test_elle_verilen_gun_veriden_turetilene_baskin(monkeypatch):

@@ -23,9 +23,35 @@ ATLAMA = re.compile(r"pytest\.mark\.(skipif|skip)\b|\bpytest\.skip\(")
 
 
 def _test_dosyalari():
-    for ad in sorted(os.listdir(HERE)):
-        if ad.startswith("test_") and ad.endswith(".py"):
-            yield ad, os.path.join(HERE, ad)
+    """`tests/` altındaki TÜM test dosyaları — alt dizinler dâhil.
+
+    Bir zamanlar yalnız `os.listdir(HERE)` idi: tek dizin. `tests/cekirdek/`
+    2026-08-29'da açıldı ve denetim onu hiç görmedi; içine altı `skipif`
+    birikti (2026-09-03'te bulundu). Nöbetçinin kendisi kör noktalıydı ve
+    körlüğü sessizdi — "0 atlama" diye söz veren docstring'in altında altı
+    atlama duruyordu.
+
+    Ders, ürünün kendisinde kovaladığımızın aynısı: **kapsamı daralan bir
+    denetim, geçtiğini söylemeye devam eder.**
+    """
+    for kok, dizinler, dosyalar in os.walk(HERE):
+        dizinler[:] = [d for d in dizinler if d != "__pycache__"]
+        for ad in sorted(dosyalar):
+            if ad.startswith("test_") and ad.endswith(".py"):
+                yol = os.path.join(kok, ad)
+                yield os.path.relpath(yol, HERE).replace(os.sep, "/"), yol
+
+
+def test_denetim_alt_dizinleri_de_tariyor():
+    """Denetimin kendi kapsamının nöbetçisi.
+
+    Az önceki hata denetimin BULDUĞU şeyde değil, BAKMADIĞI yerdeydi.
+    Kapsam sessizce daralabilen bir şeyse, o da kilitlenmelidir.
+    """
+    adlar = [ad for ad, _ in _test_dosyalari()]
+    assert any("/" in ad for ad in adlar), (
+        "Denetim yalnız tests/ kökünü tarıyor; alt dizinler kör nokta."
+    )
 
 
 def test_hicbir_test_dosyasi_kosul_bagli_atlanmiyor():

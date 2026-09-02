@@ -1,6 +1,36 @@
 """SorBI demo: sentetik hastane verisi üreteci.
-Deterministik (seed=42) — her çalıştırmada aynı veri. Gerçek kişi verisi İÇERMEZ.
+
+Deterministik: aynı girdi, her zaman aynı veri. Gerçek kişi verisi İÇERMEZ.
 Kullanım: python demo/seed_data.py  ->  demo/hospital.db
+
+## Determinizm neden İKİ parçalı (BULGU-25)
+
+`random.seed(42)` rastgele diziyi sabitler ama tarihleri sabitlemez. Bu dosya
+bir zamanlar `TODAY = date.today()` diyordu; yani üretilen veri **koşulduğu
+güne** göre kayıyordu. Docstring "her çalıştırmada aynı veri" diye söz
+veriyor, o sözü tutan hiçbir şey yoktu.
+
+Sonucu cetvelde görüldü: 43 altın çiftin 9'u zaman filtreli ve dokuzu da
+sabit bir satır sayısı iddia ediyor. Takvim ilerledikçe kovalar kayıyor ve
+`kod değişmeden` testler kırmızıya dönüyor — 2026-09-02'de `zaman-hafta`
+(80 -> 79) düştü, 1 Ekim'de ay/çeyrek sınırında beşi birden düşecekti.
+
+Bu yüzden referans gün **donduruldu.** Değer keyfî değil: cetvelin
+kalibre edildiği gün. `REFERANS_GUN` ile üretilen veri, altın çiftlerin ve
+101 gold beklentisinin ölçüldüğü veriyle **satır satır aynıdır**
+(2026-09-02'de doğrulandı, Python 3.11 ve 3.13 üzerinde).
+
+## Bu günü değiştirirsen
+
+Cetvelin tamamı yeniden kalibre edilmek zorundadır: 43 altın çiftin
+`satir_sayisi` değerleri ve güven karnesinin mutant havuzu veriye bağlıdır.
+Tek seferlik, bilinçli ve belgelenmiş bir yeniden temellendirme meşrudur;
+her tohumlamada kendini güncelleyen bir beklenti değildir — o test hiçbir
+şey iddia etmez.
+
+Geçici deneme için `SORBI_BUGUN` ortam değişkeni günü geçersiz kılar;
+projenin geri kalanında da aynı kaçış kapısı kullanılıyor (`app/config.py`).
+Nöbetçisi: `tests/test_seed_determinizmi.py`.
 """
 import os
 import random
@@ -28,7 +58,10 @@ ISLEMLER = [("Muayene", 800), ("EKG", 450), ("Kan Tahlili", 350), ("MR", 3200), 
             ("Ultrason", 900), ("EKO", 1500), ("Efor Testi", 1200), ("Endoskopi", 4500), ("Fizik Tedavi Seansı", 700)]
 DURUMLAR = ["TAMAMLANDI"] * 70 + ["IPTAL"] * 12 + ["GELMEDI"] * 10 + ["BEKLIYOR"] * 8  # ağırlıklı dağılım
 
-TODAY = date.today()
+# Cetvelin kalibre edildiği gün. Dondurulmuş — sebebi ve değiştirme
+# maliyeti dosya başlığında. `date.today()` BU DOSYADA KULLANILMAZ.
+REFERANS_GUN = os.getenv("SORBI_BUGUN", "").strip() or "2026-07-25"
+TODAY = date.fromisoformat(REFERANS_GUN)
 START = TODAY - timedelta(days=540)  # ~18 ay geçmiş
 
 

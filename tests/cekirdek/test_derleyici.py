@@ -61,7 +61,6 @@ def test_altin_cift(ad: str):
 #  2) Gerçek veritabanında koşum — anlık görüntüyü doğrulanmışa çevirir
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.skipif(not DEMO_DB.exists(), reason="demo/hospital.db yok")
 @pytest.mark.parametrize("ad", sorted(ALTIN))
 def test_altin_cift_gercek_veritabaninda_kosar(ad: str):
     con = sqlite3.connect(f"file:{DEMO_DB}?mode=ro", uri=True)
@@ -72,7 +71,6 @@ def test_altin_cift_gercek_veritabaninda_kosar(ad: str):
     assert len(satirlar) == ALTIN[ad]["satir_sayisi"], f"{ad}: satır sayısı değişti"
 
 
-@pytest.mark.skipif(not DEMO_DB.exists(), reason="demo/hospital.db yok")
 def test_kirilim_toplami_sismiyor():
     """Fan-out korumasının SAYISAL kanıtı.
 
@@ -291,7 +289,6 @@ def test_derleyici_yildiz_uretecek_bir_yol_tasimiyor():
         assert '"*"' not in govde and "'*'" not in govde, satir
 
 
-@pytest.mark.skipif(not DEMO_DB.exists(), reason="demo/hospital.db yok")
 def test_secilen_kolonlar_secimden_gelir():
     """Sonuçtaki sütun sayısı = boyut + ölçü sayısı. Ne bir eksik ne bir
     fazla: fazlası sızıntı, eksiği sessiz kayıp olurdu."""

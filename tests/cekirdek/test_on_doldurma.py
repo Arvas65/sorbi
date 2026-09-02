@@ -395,7 +395,6 @@ def _gercek_sema() -> tuple[list[TabloSemasi], list[Iliski]]:
         c.close()
 
 
-@pytest.mark.skipif(not DEMO.exists(), reason="demo/hospital.db yok")
 def test_her_dogrulama_sikayetinin_bir_sorusu_var():
     """Boşluk testi: `dogrula()` bir tablo için şikâyet ediyorsa,
     `acik_sorular()` o tablo için soru üretmek ZORUNDA. Aksi hâlde sihirbaz
@@ -410,7 +409,6 @@ def test_her_dogrulama_sikayetinin_bir_sorusu_var():
                 assert sorular.get(tablo_adi), f"soru üretilmedi: {sorun}"
 
 
-@pytest.mark.skipif(not DEMO.exists(), reason="demo/hospital.db yok")
 def test_sorular_cevaplaninca_model_gecerli_olur():
     """Yeterlilik testi — kapsama testinin tersi.
 
@@ -444,7 +442,6 @@ def test_sorular_cevaplaninca_model_gecerli_olur():
     assert onaylanmis.dogrula() == []
 
 
-@pytest.mark.skipif(not DEMO.exists(), reason="demo/hospital.db yok")
 def test_gercek_semada_hicbir_varlik_olay_tarihi_almaz():
     """Bu üç iddia, ilk taslağın gerçek şemada ürettiği üç sessiz yanlıştır."""
     tablolar, iliskiler = _gercek_sema()

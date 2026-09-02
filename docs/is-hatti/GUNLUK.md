@@ -7,6 +7,214 @@ Biçim: ne yapıldı · ne ölçüldü · ne açık kaldı · sıradaki.
 
 ---
 
+## 2026-09-02 (gece) — BULGU-25 kapandı: cetvel takvimden koparıldı, hiçbir beklenti yeniden hesaplanmadı
+
+**Kim:** bulut oturumu · **Kapı:** Review kararı İhsan'dan alındı (Ö-a).
+
+### Bulan nöbet, doğrulayan bu oturum
+
+Bulut nöbeti (`claude/39-nobet-2026-09-02.md`) temiz bir klonda
+`test_altin_cift_gercek_veritabaninda_kosar[zaman-hafta]`ın **kod değişmeden**
+düştüğünü bildirdi (80 -> 79). Bağımsız ölçtüm, üçü de doğru:
+
+- `demo/seed_data.py:31` → `TODAY = date.today()`.
+- 43 altın çiftin **9'u** zaman filtreli ve **dokuzu da** sabit `satir_sayisi`
+  iddia ediyor (`zaman-gun: 544`, `zaman-hafta: 80`, `zaman-ay: 19`…).
+- Diskteki `hospital.db` **2026-07-25**'te bitiyor. `kontrol.bat`'ın
+  20260903-0010'da verdiği 674/674 yeşili, **eski bir veri dosyası sayesinde**
+  yeşildi. 1 Ekim'de ay/çeyrek sınırında beşi birden düşecekti.
+
+Asıl cümle dosyanın kendi başlığındaydı: *"Deterministik (seed=42) — her
+çalıştırmada aynı veri."* `random.seed(42)` rastgele diziyi sabitliyor,
+tarihleri değil. Söz docstring'de, onu tutan hiçbir şey yok — CLAUDE.md § 7'nin
+"gizlilik vaadini docstring'e yazmak" satırının aynısı, bu kez determinizm
+vaadi.
+
+### Neden bedelsiz kapandı
+
+Ö-a'nın göze görünen maliyeti şuydu: referans günü değiştirmek veriyi
+değiştirir, veri değişince 43 altın çiftin `satir_sayisi`'ı ve karnenin
+mutant havuzu yeniden temellendirilmek zorunda kalır. Tek seferlik ve
+belgeli olsa bile pahalı ve riskli bir iş.
+
+Gerek kalmadı. `seed_data.py` ilk commit'ten (`86981d3`) beri hiç
+değişmemişti, yani üretim tekrarlanabilirdi. Diskteki veritabanının hangi
+günle üretildiğini **aradım**:
+
+| Denenen gün | Veri imzası |
+|---|---|
+| 2026-07-23 | `2c0a7f59…` |
+| 2026-07-24 | `f09bf103…` |
+| **2026-07-25** | **`20e2657d…` ← diskteki dosyayla birebir** |
+| 2026-07-26 | `020ec956…` |
+
+Referans gün 2026-07-25'e donduruldu. `python demo/seed_data.py` artık
+diskte duran veriyi **satır satır aynı** üretiyor: 43 altın çift, 101 gold
+beklentisi ve karne havuzu dokunulmadan geçerli kaldı. Eşleşme konteynerdeki
+Python 3.11 ile bu makinedeki 3.13 arasında tuttu — üretimin sürümden de
+bağımsız olduğu böylece ölçülmüş oldu.
+
+Değer keyfî değil: **cetvelin kalibre edildiği gün.** Neden dondurulduğu ve
+değiştirilirse neyin yeniden hesaplanması gerektiği dosya başlığında yazılı.
+
+### Sözü çalıştırılabilir kılan beş test
+
+`tests/test_seed_determinizmi.py`:
+
+- **Donmuş imza** — tohumlama izole bir dizinde koşuluyor ve tüm satırların
+  sha256'sı sabitle karşılaştırılıyor. Docstring'in vaadi artık bir iddia.
+- **İki koşum aynı veriyi verir.**
+- **Duvar saati denetimi (AST)** — `.today() / .now() / .utcnow()` çağrısı
+  yok. Metin araması değil AST, çünkü hem betiğin hem testin docstring'i
+  kusuru adıyla anlatıyor; metne bakan bir denetim kendi belgesine takılır
+  ve onu susturmanın tek yolu belgeyi kısaltmak olurdu.
+- **Referans gün veriyi gerçekten belirliyor** — `SORBI_BUGUN` ile başka bir
+  gün başka veri üretiyor. Bu geçmezse sabit ölü demektir ve donmuş imza
+  yanlış şeyi koruyor olurdu.
+- **Depodaki veritabanı cetvelin dayandığı veri** — nöbetçi. Biri `hospital.db`'yi
+  başka bir günle tohumlarsa burası öter; altın çiftlerin kendisi ötmeden.
+
+Tohumlama **izole dizinde** koşuluyor: bir testin yan etkisi olarak ölçümün
+dayandığı veriyi ezmek, tam da bu dosyanın anlattığı hatanın başka bir türü
+olurdu.
+
+### BULGU-32 — süit nöbetçisinin kendi kapsamı sessizce daralmış
+
+`kontrol.bat` yeni testi reddetti: `test_suit_dururlugu.py` `skipif`
+kullanımını yasaklıyor ("atlanan test, koşmamış testtir" — BULGU-N4). Kural
+haklıydı, benim `skipif`im ölü koddu: `conftest.py` `hospital.db`'yi içe
+aktarma anında zaten tohumluyor, yani koşul hiçbir zaman doğru olmuyordu.
+
+Kaldırırken asıl şey çıktı. Nöbetçi `os.listdir(HERE)` ile **tek dizin**
+tarıyor; `tests/cekirdek/` ise 2026-08-29'da bu oturumun hattında açıldı ve
+denetim onu hiç görmedi. İçinde birikmiş **altı** `skipif` vardı — hepsi de
+aynı ölü koşula bağlı:
+
+| Dosya | Görülmeyen atlama |
+|---|---|
+| `tests/cekirdek/test_derleyici.py` | 3 |
+| `tests/cekirdek/test_on_doldurma.py` | 3 |
+
+Nöbetçinin docstring'i "bu dosyadan sonra süitte 0 atlama olmalı" diyordu;
+altında altı atlama duruyordu ve hiçbir şey ötmüyordu. Hata denetimin
+BULDUĞU şeyde değil, **BAKMADIĞI yerdeydi** — ve körlüğü sessizdi.
+
+Ders, ürünün kendisinde kovaladığımızın aynısı: *kapsamı daralan bir denetim,
+geçtiğini söylemeye devam eder.*
+
+**Düzeltme.** `_test_dosyalari()` artık `os.walk` ile alt dizinleri de tarıyor
+(`__pycache__` hariç). Yedi `skipif` kaldırıldı. Ve kapsamın kendisi
+kilitlendi: `test_denetim_alt_dizinleri_de_tariyor`, tarama tekrar tek dizine
+daralırsa öter.
+
+Ayrıca `subprocess` çağrısına S603 muafiyeti eklendi — gerekçesi
+`tests/conftest.py`'deki aynı muafiyetin gerekçesiyle birebir: girdi
+kullanıcıdan değil, kabuk yok, argümanlar liste hâlinde.
+
+### Numaralar (BULGU-26)
+
+Bu oturumun A-2 ve temizlik bulguları **28/29/30/31**'e kaydırıldı; nöbet
+hattının 21/22/24/25/26/27'si yerinde kaldı. Gerekçe kronoloji değil maliyet:
+nöbetin numaraları yamaya, `BULGULAR.md`'ye ve dört proje belgesine gömülü;
+bu oturumunkiler iki GUNLUK girişi ile bir proje belgesinde. Ucuz olan taraf
+taşındı.
+
+- BULGU-28 (eski 21) dolu alan · BULGU-29 (eski 22) aşırı maskeleme
+- BULGU-30 (eski 23) anahtar boyutlar · BULGU-31 (eski 24) test çöpü
+
+### Açık
+
+- **`38-yama-2026-09-02.patch` hâlâ uygulanmadı.** Tabanı `148cfd1`; o
+  taban artık ilerledi ve yama CLAUDE.md § 7 ile GUNLUK.md'ye dokunuyor —
+  ikisini de bu oturum değiştirdi. Uygulanmadan önce uzlaştırılmalı.
+  İçindeki `eval/kanit_it.py` gece koşumunun yanlış dala itmesini kapatıyor;
+  gece koşumu dört gecedir hiç başlamadı, o yüzden acil değil ama kritik.
+- `otomatik.bat /durum` → `Last Run` / `Last Result` (makine başındayken).
+- BULGU-18 ve ADR-5 § 6 hâlâ İhsan'da.
+- `demo/seed_data.py` diskte **salt okunur** bayrağı taşıyordu; yerine
+  yazabilmek için silip yeniden oluşturmak gerekti. Kasıtlıysa haber ver.
+
+### Sıradaki
+
+`kontrol.bat`, sonra `app/baglanti/sema_kaynagi.py` (A-2'nin IO yarısı).
+
+---
+
+## 2026-08-30 (akşam) — Depo temizliği: bir çöp dosya bir testi sessizce anlamsızlaştırmış
+
+**Kim:** bulut oturumu · **Kapı:** yok (bakım).
+
+### BULGU-31 — testin ürettiği çöpü ignore'lamak, testi bozdu
+
+Kökte sıfır baytlık bir `yok-boyle-bir-dosya-yok.db` duruyordu ve
+`.gitignore`'un 38. satırında adıyla susturulmuştu.
+
+Kaynağı `test_veritabani_okunamazsa_yedek_gune_duser`: `DB_URL`'i
+`sqlite:///yok-boyle-bir-dosya-yok.db`'ye çeviriyor, `veri_gunu()` de
+`create_engine` + `inspect` ile oraya bağlanıyor — **ve SQLite o dosyayı
+oluşturuyor.** Yani test kendi ön koşulunu yok ediyordu:
+
+| Koşum | Test aslında neyi ölçüyor |
+|---|---|
+| Temiz klondaki ilk koşum | "veritabanı dosyası yok" |
+| Sonraki her koşum | "veritabanı var ama boş" |
+
+İkisi de yedek güne düştüğü için test hep yeşildi. Testin ne ölçtüğü
+kaçıncı kez koşulduğuna bağlıydı ve bunu hiçbir şey söylemiyordu. Çöp
+dosya fark edilmiş, ama **düzeltilmek yerine görünmez kılınmıştı** —
+`.gitignore` satırı hatanın kendisinin değil, belirtisinin üstünü örtüyordu.
+
+Bu ailenin adı belli: *"Beklenen değeri betiğe gömmek — sabit, yazıldığı ana
+ve makineye aittir."* Burada sabit bir değer değil, bir dosyanın varlığıydı.
+
+**Düzeltme.** Tek test ikiye ayrıldı ve ikisi de adıyla ne ölçtüğünü söylüyor:
+
+- `test_veritabani_acilamazsa_yedek_gune_duser` — yol artık **olmayan bir
+  dizinin** içinde. SQLite ara dizin yaratmaz, açılış başarısız olur.
+  Test ayrıca hiçbir şeyin oluşmadığını doğruluyor (`not yok.exists()`).
+- `test_bos_veritabani_yedek_gune_duser` — boş veritabanı hâli, artık
+  `tmp_path` içinde ve kazayla değil kasten.
+
+`.gitignore` satırı kaldırıldı: bir daha çöp üretilirse `git status`'ta
+**görünecek.** Asıl nöbetçi bu.
+
+### Temizlik
+
+| Ne | Neden gitti |
+|---|---|
+| `it.bat`, `it2.bat` | Tek seferlik, işleri bitmiş, BULGU-20'nin kaynağı. `docs/is-hatti/v3/arsiv/`e taşındı, yanına gerekçesiyle bir OKUBENI konuldu |
+| `%TEMP%\` klasörü | Bir batch betiğinin değişkeni genişletmeden yazdığı boş dizin (2026-08-16). Git boş dizinleri görmediği için `git status`'ta **hiç görünmüyordu** |
+| `yok-boyle-bir-dosya-yok.db` | Yukarıdaki bulgu |
+| `_to_delete/` (6 kalem) | Ağustos'tan kalma git kilit/temp kalıntıları. İkisi izleniyordu: `.sorbi-write-test` ve 62 KB'lık `_ip0102.tgz` — kaynak deposunda ikili paket |
+
+Kök dizinde artık yalnız tekrar tekrar koşulan yedi betik var.
+
+### CLAUDE.md §7'ye iki satır
+
+- Tek seferlik betiği kök dizinde bırakmak → bir gün yeniden koşulur.
+- Testin ürettiği çöpü ignore'lamak → görünmezlik düzeltme değildir.
+
+### Ayrıca fark edildi, düzeltilmedi
+
+- **`148cfd1` yanlış etiketli.** "IP-47: derleyici" diyor ama A-2'nin
+  tamamını (`on_doldurma.py` + 50 test) da taşıyor. İtilmiş; geçmiş
+  yeniden yazılmadı. `it.bat`'in pathspec'siz `git commit -m` alışkanlığının
+  aynısı, bu kez elle.
+- **`_yedek/` budanmıyor.** `kur.bat` her kurulumda bir kopya bırakıyor,
+  hiçbir şey silmiyor: 6 kopya, 9,3 MB. Yamayı yazmadım çünkü **burada
+  cmd.exe koşturamıyorum ve ölçemediğim bir betiği göndermem.** Backlog'a.
+
+### Açık
+
+- `kontrol.bat` — A-2 ve bu temizlik birlikte doğrulanacak.
+- `app/baglanti/sema_kaynagi.py` (A-2'nin IO yarısı) sırada.
+
+### Sıradaki
+
+`kontrol.bat`, sonra `sema_kaynagi.py`.
+
+---
+
 ## 2026-08-30 (öğleden sonra) — A-2 ön-doldurma: taslak gerçek şemada üç sessiz yanlış üretti
 
 **Kim:** bulut oturumu · **Kapı:** Faz 1 sürüyor (İP-51'in yarısı, İP-49 kapandı).
@@ -23,7 +231,7 @@ Modül yazıldı, testler yazılmadan önce **gerçek şema üzerinde bir kez
 çalıştırıldı**. Üç sessiz yanlış oradan çıktı; ne tip sistemi, ne
 `dogrula()`, ne de bir birim testi yakalardı.
 
-**BULGU-21 — dolu alan, sorulmamış soru.**
+**BULGU-28 — dolu alan, sorulmamış soru.**
 Taslak `olay_tarihi`ni en güçlü adayla DOLDURUYORDU. `hasta` tablosunda
 sonuç `olay_tarihi = dogum_tarihi` oldu: hastalar doğum tarihine göre
 sayılırdı. Daha kötüsü, `acik_sorular()` bunu **sormuyordu** — alan dolu
@@ -35,7 +243,7 @@ diye bir kip yok: ya karar insanındır ya değildir.
 soruluyor. Modülün kendi başlığındaki kural ("öneri geçerli bir model
 değildir") ilk kez gerçekten tutuyor.
 
-**BULGU-22 — aşırı maskeleme körlük üretir.**
+**BULGU-29 — aşırı maskeleme körlük üretir.**
 `^ad$` koşulsuz kişisel veri sayılıyordu; `bolum.ad` ve `islem.ad` de
 maskelendi. Şemanın gruplanabilir tek okunabilir etiketleri yok oldu —
 "bölüme göre ciro" sorulamaz hâle geldi. Gizlilik değil körlük.
@@ -44,7 +252,7 @@ im (`ad`) yalnız tabloda güçlü bir im daha varsa sayılır. `hasta.ad`
 maskeleniyor, `bolum.ad` maskelenmiyor. Maskeleme `dogrula()`'nın
 şikâyet etmediği bir tahmin olduğu için sihirbaz artık onu da **soruyor**.
 
-**BULGU-23 — anahtarlar boyut oldu.**
+**BULGU-30 — anahtarlar boyut oldu.**
 32 boyutun yarısı `hasta_id`, `randevu_id`, `bolum_id` idi. Kimse
 `hasta_id`'ye göre gruplamaz; eşleyicinin sözlüğü gürültüyle doluyordu.
 `_ANAHTAR` deseni yalnız ölçü tarafında kullanılıyor, boyut tarafında
