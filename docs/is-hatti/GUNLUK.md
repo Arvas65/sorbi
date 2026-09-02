@@ -7,6 +7,73 @@ Biçim: ne yapıldı · ne ölçüldü · ne açık kaldı · sıradaki.
 
 ---
 
+## 2026-09-03 — Nöbetin yaması uzlaştırıldı: gece koşumu artık dal körü değil
+
+**Kim:** bulut oturumu · **Kapı:** yok (onarım) · **Taban:** `eb0dad3`
+
+`38-yama-2026-09-02.patch` dört gündür bekliyordu ve tabanı (`148cfd1`)
+ilerlemişti. Dokuz dosyanın beşi temiz uygulandı; dördü elle uzlaştırıldı,
+çünkü ikisinin içeriği artık **eskimişti**: `BULGULAR.md` numaralandırma
+kararını bilmiyordu, `BULGU-25` belgesi hâlâ "AÇIK" diyordu.
+
+### Kabul etmeden önce ölçüldü
+
+Nöbetin en ağır iddiası şuydu: eski `git push HEAD:refs/heads/olcum-otomatik`
+özellik dalı kodunu ölçüm dalına **sessizce** taşır. Kabul edilmedi, kuruldu:
+çıplak uzak depo, `olcum-otomatik` dalı, ondan türeyen `ip-46-cekirdek`,
+sonra eski dizinin birebir kendisi.
+
+```
+push cikis kodu : 0     <- reddedilmedi
+kanit gitti mi  : True
+V4 KODU SIZDI MI: True  <- app/cekirdek/anlam.py olcum dalinda
+```
+
+İddia doğru. `eval/kanit_it.py`'nin 13 testi de bu oturumda bağımsız
+koşuldu: **13/13 yeşil**, ruff temiz.
+
+Çözümün şekli kayda değer: dal **kontrol edilmiyor** — o da bir varsayım
+olurdu. Kanıt commit'i çalışma ağacının dalıyla hiç ilişkilendirilmiyor
+(ayrı indeks, ağaç uzak dalın tepesinden, `commit-tree` ile çocuk, itilen
+şey commit'in kendisi). HEAD, indeks ve çalışma ağacı **okunmuyor bile.**
+
+> **Bir betiğin "hangi dalda olduğumu bilmiyorum" hâli, yanlış dalda
+> olmaktan iyidir.**
+
+### Uzlaştırılanlar
+
+| Dosya | Ne yapıldı |
+|---|---|
+| `eval/kanit_it.py` · `tests/test_kanit_it.py` | olduğu gibi, doğrulanarak |
+| `gece-kosum.bat` § 4 | elle uygulandı (CRLF korunarak) |
+| `bulgu/BULGU-24` | + bağımsız doğrulama bölümü |
+| `bulgu/BULGU-25` | **AÇIK → KAPANDI**, kararla ve çözümüyle birlikte |
+| `bulgu/BULGU-27` | olduğu gibi (hâlâ açık, Review) |
+| `BULGULAR.md` | karara göre yeniden yazıldı |
+| `CLAUDE.md` § 7 | nöbetin 4 satırı, bu hattın 3 satırının yanına |
+| `GUNLUK.md` | nöbetin 09-02 girişi sırasına eklendi, olduğu gibi |
+
+`36-yama-2026-08-31.patch` uygulanmadı ve uygulanmayacak: nöbetin kendi
+tavsiyesi. İçinden hâlâ değerli olan tek şey `eval/kosum_tazeligi.py`
+(kaçan geceyi sayar) — BULGU-21 olarak açık duruyor.
+
+### Açık
+
+- **İP-38 — gece koşumu 03:00'te uyanmıyor.** Dört gecedir kanıt yok ve
+  sebep hâlâ bilinmiyor. Makine başındayken bakılacak tek yer:
+  `otomatik.bat /durum` → `Last Run` / `Last Result`.
+- **BULGU-27** (karne günlüğü kaynak damgası) ve **BULGU-18** — Review.
+- **ADR-5 § 6** — Ship.
+- `demo/seed_data.py` diskte salt okunur bayrağı taşıyordu; yerine
+  yazabilmek için silinip yeniden oluşturuldu.
+
+### Sıradaki
+
+`app/baglanti/sema_kaynagi.py` — A-2'nin IO yarısı. Ölçüm gelmeden her
+ilişki `OLCULMEDI` kalıyor ve hiçbir anlam modeli geçerli olamıyor.
+
+---
+
 ## 2026-09-02 (gece) — BULGU-25 kapandı: cetvel takvimden koparıldı, hiçbir beklenti yeniden hesaplanmadı
 
 **Kim:** bulut oturumu · **Kapı:** Review kararı İhsan'dan alındı (Ö-a).
@@ -137,6 +204,157 @@ taşındı.
 ### Sıradaki
 
 `kontrol.bat`, sonra `app/baglanti/sema_kaynagi.py` (A-2'nin IO yarısı).
+
+---
+
+## 2026-09-02 — Dördüncü sessiz gece; gece koşumu artık yanlış dala itiyordu
+
+**Kim:** bulut nöbeti (zamanlanmış, yerel makineye erişim yok)
+**Kapı:** yok — onarım ve ölçüm. ADR-5, BULGU-18, BULGU-25 İhsan'da.
+**Okunan:** `olcum-otomatik` `e168113` · `ip-46-cekirdek` `148cfd1`
+
+> *Bu giriş 2026-09-03'te, `38-yama-2026-09-02.patch` uzlaştırılırken
+> sırasına eklendi. Yazıldığı andaki hâliyle duruyor: BULGU-25'i açık,
+> numaralandırmayı çözülmemiş sayıyor. İkisi de sonradan kapandı — üstteki
+> girişlere bakın. Günlük düzenlenmez, yalnız eklenir.*
+
+### Ölçüldü
+
+**Yeni Gemini ölçümü YOK — dört gecedir kanıt gelmiyor** (08-30, 08-31,
+09-01, 09-02). Depodaki **hiçbir dalda** o gecelere ait `gece-*.log` yok.
+En yeni koşum hâlâ **20260829-0300**: doğruluk **%72,3** (73/101,
+Wilson GA %62,9–80,1), sessiz yanlış 28 (yanlışların %100'ü), p50/p95
+**2,78 / 4,97 sn**, `kota_asildi=0`. Api tabanı beş koşumda **%69,3–72,3**
+ve dört gecedir **büyümüyor**.
+
+Kota sorunu yok. G-12 hakkında hüküm yok (api modu KAPSAM DIŞI; geçerli
+tek sayı yerelin p95'i, 21,2–32,8 sn). Karşılaştırılabilirlik reddi
+çalışıyor: `guven_olcum.py` referans gün farkı yüzünden karşılaştırmayı
+**doğru şekilde reddetti**.
+
+LLM'siz denetim, temiz klonda, her sayının yanında komutu (BULGU-20 kuralı):
+
+| Komut | `olcum-otomatik` | `ip-46-cekirdek` |
+|-------|------------------|------------------|
+| `python3 -m ruff check .` | All checks passed | All checks passed |
+| `python3 demo/seed_data.py && python3 -m pytest tests/` | **363 geçti** | **672 geçti · 1 DÜŞTÜ** |
+| `python3 eval/evaluate.py --gold-only` | **101/101** | 101/101 |
+| `python3 eval/guven_olcum.py` | `gold=101 alarm=1 mutant=239 yakalanan=199 zbos=0` (%83,3) | aynı |
+
+Tüm iddialar `olcum-denetci` alt ajanına bağımsız doğrulattırıldı:
+**KOŞULLU GEÇERLİ** — tek sınır, "gece betiği hiç başlamadı" çıkarımının
+depo kanıtıyla %100 ispatlanamaması (aşağıda).
+
+### Koşumun neden gelmediği — bildiğimiz ve bilemediğimiz
+
+`gece-kosum.bat` çalıştığı anda, `kontrol.bat`'tan **önce**
+`docs\kanit\gece-<damga>.log` dosyasını yazar. Dört gecenin hiçbirinde o
+dosya yok; `.gitignore` da onu kapsamıyor. En olası açıklama: **betik hiç
+başlamadı.** Kesin değil — betik başlayıp git adımına ulaşmadan düşseydi
+log yerelde kalır ve buradan görünmezdi.
+
+Ama makine kapalı değildi: `ip-46-cekirdek` üzerinde Arvas65 imzalı
+commit'ler **08-29 22:19** ve **08-30 11:05/12:37**, ayrıca elle koşulmuş
+`kontrol-20260829-2127…2231` ve `kontrol-20260830-1145/1207` logları var.
+O pencerede git ve push da çalışıyordu — yani kimlik doğrulama sorunu
+değil. Arıza 03:00 penceresine özgü (İP-38: `schtasks /SC DAILY` kaçanı
+telafi etmez, uyandırmaz, pil üstünde başlamaz).
+
+### BULGU-24 (ağır) — ve iyi ki koşum gelmemiş
+
+Sebep aranırken kod okundu ve şu çıktı: `gece-kosum.bat`
+`git push origin HEAD:refs/heads/olcum-otomatik` yapıyor ve **hangi dalda
+olduğuna bakmıyor.** `ip-46-cekirdek`, `olcum-otomatik`'in ucunun
+torunu — doğrulandı:
+
+```
+$ git merge-base --is-ancestor e168113 origin/ip-46-cekirdek && echo FF
+FF
+$ git diff --stat e168113 origin/ip-46-cekirdek -- . ':!docs/kanit' | tail -1
+ 68 files changed, 10296 insertions(+), 159 deletions(-)
+```
+
+Bir sonraki **başarılı** gece koşumu kanıt commit'ini İhsan'ın özellik
+dalına atacak, push hızlı-ileri sarma olarak **başarılı olacak** ve yarım
+kalmış v4 çalışmasının tamamını ölçüm dalına taşıyacaktı. Reddedilmezdi.
+
+**Çözüm dal kontrolü değil** — o da bir varsayım olurdu. Kanıt commit'i
+artık çalışma ağacının dalıyla hiç ilişkilendirilmiyor: ayrı indeks
+(`GIT_INDEX_FILE`), ağaç `origin/olcum-otomatik`'in güncel tepesinden,
+`commit-tree` ile çocuk, ve **commit'in kendisi** itiliyor — HEAD değil.
+`eval/kanit_it.py` + **13 test** (gerçek git depoları, taklit yok).
+Testler kendi kodumdaki ikinci kusuru da yakaladı: `git add <dizin>` git
+2.0'dan beri **silmeyi de işliyor**, kanıtın ekle-only kuralını tam onu
+koruyan kod bozacaktı (`--ignore-removal`).
+
+Ayrıntı: `docs/is-hatti/bulgu/BULGU-24-gece-kosumu-dal-koru.md`
+
+### BULGU-25 (orta, AÇIK) — altın çiftler takvimle çürüyor
+
+`ip-46-cekirdek` süiti taze tohumlanmış temiz bir klonda **yeşil değil**:
+
+```
+$ python3 demo/seed_data.py && python3 -m pytest tests/
+1 failed, 672 passed
+FAILED tests/cekirdek/test_derleyici.py::test_altin_cift_gercek_veritabaninda_kosar[zaman-hafta]
+E   assert 79 == 80
+```
+
+Kod değişmedi, takvim değişti. Demo verisi bugüne göre üretiliyor; altın
+çift satır sayısını sabit tutuyor. **43 altın çiftin 9'u** takvime bağlı;
+biri düştü, kalan sekizi ay/çeyrek sınırında düşecek (1 Ekim'de beşi).
+İhsan'ın diskindeki `hospital.db` eski olduğu için onun makinesinde henüz
+kırmızı değil — bir sonraki `seed_data.py` çağrısında olacak.
+
+Nöbet **testi değiştirmedi**: bir regresyon nöbetçisinin ne iddia edeceği
+cetvel politikasıdır (SPEC B-2), BULGU-18 ile aynı sebeple Review'da.
+Öneri Ö-a: `seed_data.py` referans günü `tarih_sabitle`den alsın —
+43 çiftin tamamı takvimden kurtulur, altın çiftlere hiç dokunulmaz.
+
+### BULGU-26 — numaralar çakıştı
+
+BULGU-21 ve BULGU-22, aynı gün iki ayrı yerde iki farklı şeye verildi
+(A-2 ön-doldurma bulguları vs. bulut nöbetinin hat bulguları). Merkezî
+kayıt yoktu. `docs/is-hatti/BULGULAR.md` açıldı: **numara yalnız orada
+verilir.** Çakışmanın çözümü İhsan'da.
+
+### BULGU-27 — nöbetin kendi koşumu üretim kanıtına yazdı
+
+Oturum sonunda çalışma ağacı temizlenirken çıktı: `eval/guven_olcum.py`
+tam bir karne koştuğunda `docs/kanit/KARNE-GECMIS.log`'a yazıyor ve bu
+elemede yalnız **koşumun boyutu** var (`gold < 101`), **makinesi** yok.
+Bulutta koşulan geçerli bir karne, İhsan'ın makinesine ait ekle-only
+günlüğe düşüyor.
+
+Etkisi ölçüldü ve korktuğumdan hafif: `karne_gecmisi.py` yabancı satırda
+yanlış alarm üretmiyor, `durum=kiyas_yok` deyip **çıkış 0** veriyor —
+mutant havuzu farklı olduğu için. Yani alarm yanlış ötmüyor, **hiç
+ötmüyor**: bir sonraki koşum için regresyon nöbetçisi sessizce devre dışı
+kalıyor, sonraki koşum kendi çizgisine dönüyor. Zarar tam olarak bir
+koşumluk kör nokta.
+
+Bu oturumun iki satırı **geri alındı, hiçbir yere itilmedi.** Bugünden
+itibaren nöbet `docs/kanit` altındaki hiçbir değişikliği işlemiyor.
+
+### Açık kalan
+
+- **Ship — ADR-5 § 6 hâlâ boş.** Ayrıca depodaki `v3/ADR/ADR-5-api-modu.md`
+  08-23 sürümünde donmuş; güncel taslak yalnız proje belgesinde
+  (`claude/17-ADR-5-api-modu-taslak.md`). Karar dosyası kararla birlikte
+  depoya inmeli — "ADR koda inmezse karar değildir"in belge hâli.
+- **BULGU-18** (cetvel fazla kolon) · **BULGU-25** (altın çift takvimi) ·
+  **BULGU-27** (karne günlüğü kaynağı) — üçü de Review.
+- **İP-38**: gece görevi 03:00'te uyanmıyor. Windows'ta denenemeyen bir
+  şey yazılmadı; `otomatik.bat /durum` çıktısındaki `Last Run`/`Last Result`
+  makine açıkken bakılacak tek yer.
+- `36-yama-2026-08-31.patch` **uygulanmadı** ve artık kısmen gereksiz:
+  `ip-46-cekirdek` BULGU-19'u (`7472a5f`) ve süit dürürlüğünü kendi
+  yoluyla kapatmış. Yamayı olduğu gibi uygulama.
+
+### Sıradaki
+
+`otomatik.bat /simdi` bir kez koşarsa hat yeniden akar; artık hangi dalda
+olunduğu önemli değil. İlk gelen koşum api tabanını altı koşuma çıkarır.
 
 ---
 

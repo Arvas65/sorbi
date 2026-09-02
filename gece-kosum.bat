@@ -56,43 +56,23 @@ if exist "gece-gorev\*.bat" (
 )
 
 REM ---- 4) sonucu git ile disari it ----
-REM  DIKKAT: yalnizca kanit ve gunluk islenir. Ihsan'in yarim kalmis
-REM  calismasina dokunulmaz; master'a hic dokunulmaz. Itilen yer ayri
-REM  bir uzak dal: olcum-otomatik.
+REM  DIKKAT: itilen sey YALNIZ kanittir. Calisma agaci, indeks ve HEAD
+REM  okunmaz bile; hangi dalda olundugu onemli degildir.
+REM
+REM  Eskiden burada dogrudan "git add + commit + push HEAD:..." vardi.
+REM  Bu, HEAD'in bir olcum dali oldugunu varsayiyordu. 2026-08-29'da
+REM  ip-46-cekirdek acildi ve varsayim dustu: kanit commit'i o ozellik
+REM  dalina atilacak, push ise HIZLI-ILERI SARMA olarak BASARILI olup
+REM  yarim kalmis v4 calismasinin tamamini olcum dalina tasiyacakti.
+REM  Push reddedilmiyordu - sessizce dogru calisip yanlis seyi yapiyordu.
+REM  (BULGU-24, 2026-09-02.  Ayrinti ve testler: eval\kanit_it.py)
 where git >nul 2>&1
 if errorlevel 1 (
     echo [gece] git yok - sonuc yerelde kaldi >> "!NLOG!"
     goto :bitir
 )
 
-git rev-parse --is-inside-work-tree >nul 2>&1
-if errorlevel 1 (
-    echo [gece] git deposu degil - sonuc yerelde kaldi >> "!NLOG!"
-    goto :bitir
-)
-
-git add docs/kanit docs/is-hatti/GUNLUK.md >>"!NLOG!" 2>&1
-
-git diff --cached --quiet
-if not errorlevel 1 (
-    echo [gece] islenecek yeni kanit yok >> "!NLOG!"
-    goto :bitir
-)
-
-git -c user.name="SorBI gece kosumu" -c user.email="gece@sorbi.local" ^
-    commit -m "olcum: gece kosumu !STAMP! (otomatik)" >>"!NLOG!" 2>&1
-if errorlevel 1 (
-    echo [gece] commit basarisiz >> "!NLOG!"
-    goto :bitir
-)
-echo [gece] kanit islendi >> "!NLOG!"
-
-git remote get-url origin >nul 2>&1
-if errorlevel 1 (
-    echo [gece] uzak depo tanimli degil - kanit yerelde kaldi >> "!NLOG!"
-    goto :bitir
-)
-git push origin HEAD:refs/heads/olcum-otomatik >>"!NLOG!" 2>&1
+python eval\kanit_it.py --mesaj "olcum: gece kosumu !STAMP! (otomatik)" >>"!NLOG!" 2>&1
 if errorlevel 1 (
     echo [gece] PUSH BASARISIZ - kanit yerelde duruyor, kaybolmadi. >> "!NLOG!"
     echo [gece] En olasi sebep: GitHub kimlik dogrulamasi yapilmamis. >> "!NLOG!"
@@ -107,5 +87,6 @@ if errorlevel 1 (
 :bitir
 
 echo [gece] bitti >> "!NLOG!"
-REM  Son kosumun ozeti yukarida (git add oncesi) yazildi; burada yeniden yazilmaz.
+REM  Son kosumun ozeti yukarida (kanit itilmeden once) yazildi; burada
+REM  yeniden yazilmaz - yoksa itilen kopya hep bir kosum geriden gelir.
 endlocal & exit /b 0

@@ -127,6 +127,10 @@ Tekrarlanmasın diye duruyorlar. Hepsi gerçekten oldu.
 | Tek seferlik betiği kök dizinde bırakmak | Bir gün yeniden koşulur. `it.bat` sabit dal adıyla yanlış dala itecekti (BULGU-20). Tek seferlik iş `gece-gorev/`e yazılır, bitince `bitti/`ye taşınır |
 | Testin ürettiği çöp dosyayı `.gitignore`'a eklemek | Görünmezlik düzeltme değildir. `yok-boyle-bir-dosya-yok.db` testin kendi yan etkisiydi; ignore'lanınca test ilk koşumda "dosya yok", sonrakilerde "boş veritabanı" ölçer oldu |
 | Denetimin kapsamını tek dizine sabitlemek | `os.listdir` ile yazılan süit nöbetçisi, sonradan açılan `tests/cekirdek/`'i hiç görmedi; "0 atlama" diye söz verirken altında altı atlama vardı. Kapsam da bir varsayımdır, o da kilitlenir |
+| Otomatik bir betiğin HEAD'i itmesi | HEAD'in "doğru dal" olduğu bir varsayımdır ve yeni bir dal açıldığı gün düşer. Push reddedilmez — hızlı-ileri sarma **başarılı** olur ve yanlış şeyi taşır (BULGU-24). Doğru soru "doğru dalda mıyım" değil, "bu iş dala bakmadan yapılabilir mi" |
+| Bir cetvel kusurunu düzeltip aynısını başka yerde aramamak | İP-23 ölçüm cetvelini takvimden kurtardı; altın çiftler bir hafta sonra aynı hatayla doğdu (BULGU-25). Onarım yamadır; kural değilse tekrar eder |
+| Bulgu numarasını yazarken vermek | İki dal aynı gün BULGU-21'i iki farklı şeye verdi. Numara `docs/is-hatti/BULGULAR.md`'de verilir, başka hiçbir yerde |
+| Bir kirlenme kapısını kapatıp aynı dosyaya açılan öteki kapıları saymamak | İP-33 karne günlüğünü *küçük* koşumlardan korudu, *yabancı* koşumlardan korumadı (BULGU-27). Ekle-only günlüğe yazma hakkı koşumun boyutuna değil **kime ait olduğuna** bakmalı |
 
 Ortak paydaları: **bir yerde geçerli olanın başka yerde de geçerli olduğunu
 varsaymak.** Çare hep aynı — varsayımı çalıştırılabilir bir kontrole çevir.
