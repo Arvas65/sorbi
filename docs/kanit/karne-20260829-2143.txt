@@ -1,0 +1,58 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|##########| 199/199 [00:00<00:00, 2691.42it/s]
+====================================================================
+GÜVEN KONTROLÜ MUTASYON KARNESÝ (B-7, LLM'siz)
+====================================================================
+Ölçüm günü (sabit)      : 2026-07-23
+  + Zamana baðlý 13 sorunun tamamý dolu döndü
+Kapalý kontrol          : bicim_sayi, sema_ortusmez
+Doðru sorgu (gold)      : 101
+  gereksiz bayrak       : 1 (%1.0)   <- DÜÞMELÝ
+Bilinen yanlýþ (mutant) : 306   (sonucu deðiþmeyen 60 mutant sayýlmadý)
+  yakalanan             : 245 (%80.1)   <- YÜKSELMELÝ
+
+Mutasyon türüne göre yakalama:
+  bos_kume           96/101  %95
+  filtre_degeri      35/37   %95
+  toplama_takasi     26/30   %87
+  where_dus          45/54   %83
+  deger_takasi       25/34   %74
+  limit_dus          10/17   %59
+  distinct_dus        4/11   %36
+  karsilastirma       4/21   %19
+  join_ici_disi       0/1    %0
+
+Kontrol bazýnda (yanlýþta kaç kez / doðruda kaç kez / isabet):
+  sifir_toplama            82 /    0  %100
+  bos_sonuc_filtreli       55 /    0  %100
+  bilinmeyen_deger         41 /    0  %100
+  atlanan_kolon             5 /    0  %100
+  filtresiz                47 /    0  %100
+  deger_uyumsuz            20 /    0  %100
+  bicim_adet                4 /    0  %100
+  distinct_eksik            4 /    0  %100
+  bos_sonuc                 2 /    0  %100
+  toplama_uyumsuz          30 /    1  %97
+
+Gereksiz bayrak örnekleri (doðru cevaba konan uyarý):
+  [76] EKG iþlemi kaç kez uygulanmýþ?                             toplama_uyumsuz
+
+Kaçýrýlan örnekler (yanlýþ cevap, uyarý yok):
+  [4] deger_takasi    Profesör unvanlý doktorlar kimler?
+  [6] where_dus       Kadýn hastalarýn sayýsý nedir?
+  [11] deger_takasi    Ödemesi bekleyen faturalarýn toplam tutarý ne kada
+  [14] bos_kume        En yüksek fatura tutarý ne kadar?
+  [15] where_dus       Þu anda hastanede yatan hasta sayýsý kaç?
+  [19] karsilastirma   2020 yýlýndan sonra iþe baþlayan doktorlar kimler?
+  [21] karsilastirma   Geçen ay kaç randevu oluþturuldu?
+  [22] karsilastirma   Bu yýl kesilen faturalarýn toplam tutarý nedir?
+
+Kapatma kararýnýn BUGÜNKÜ takasý (bicim_sayi, sema_ortusmez):
+                          yakalanan    gereksiz bayrak
+  kapalý (þu an)        245 (%80.1)         1 (% 1.0)
+  açýk                  247 (%80.7)         3 (% 3.0)
+  Açmanýn bedeli  : +2 yakalama, +2 gereksiz bayrak
+
+KARNE_OZET gun=2026-07-23 gold=101 alarm=1 mutant=306 yakalanan=245 zbos=0
+
+ÖNCEKÝ KARNE: birebir ayný.
