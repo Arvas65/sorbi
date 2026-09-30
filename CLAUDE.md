@@ -81,14 +81,14 @@ olur ya da hiç derlenmez.
 **v4:** çekirdek yazıldı ve testli; **ürüne bağlı değil** (BULGU-39).
 Sıradaki iş uçtan uca ince dilim — `docs/PLAN.md` Faz B.
 
-**Bekleyen kapılar:** ADR-5 § 6 (Ship) · BULGU-18, BULGU-27 (Review).
+**Bekleyen kapılar:** yok. Faz B onaylandı (2026-09-30), Build'de.
 
 ## 6. Alınmış kararlar
 
 - **ADR-1 rev.2** taban model `qwen2.5-coder:7b-instruct` (McNemar p=2,8e-4)
 - **ADR-2 rev.2** QLoRA ertelendi — yanlışın sayısını azaltır, görünmezliğini değil
 - **ADR-3** Chroma RAG · **ADR-4** sqlglot ile lehçe taşınabilirliği
-- **ADR-5** çıkarım yerel mi API mi — **TASLAK**, Ship kapısı. Öneri B (çift mod)
+- **ADR-5 KABUL — B** (2026-09-30): yerel varsayılan, API açıkça seçilir. `config.py`'ye ve teste kilitli
 - **ADR-8** anlam katmanı · **ADR-9** anlam modeli müşterinin makinesinde dosya
 - Lisans çift: çekirdek açık, kurumsal katman kapalı
 - FastAPI çekirdek + Streamlit istemci; tam yeniden yazım yok

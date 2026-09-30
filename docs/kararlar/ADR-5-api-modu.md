@@ -1,12 +1,10 @@
-# ADR-5 (TASLAK) — Çıkarım nerede koşacak: yerel mi, API mi
+# ADR-5 — Çıkarım nerede koşacak: yerel mi, API mi
 
-**Durum:** **TASLAK — karar verilmedi.** Ship kapısıdır, karar İhsan'ındır.
+**Durum:** **KABUL — Seçenek B** (İhsan Arvas, 2026-09-30). Ship kapısıdır; karar İhsan'ındır.
 **Hazırlayan:** bulut nöbeti, 2026-08-22 · **Güncelleyen:** bulut nöbeti, 2026-08-30 ·
 **Depoya taşındı:** toparlama, 2026-09-30 (proje belgesindeki güncel taslak; depodaki
 kopya 08-23'te donmuştu)
 **İş paketi:** İP-32 · **İlgili:** ADR-1 rev.2 · G-11, G-12, G-13, G-16 · CLAUDE.md § 3
-
-> Bu dosya bir karar değil, kararın **önüne konan malzemedir.**
 
 > **2026-09-30 notu — "ilk müşteri kim" sorusu cevaplandı.** § 6'nın sonundaki karşı
 > argüman kararı ilk müşterinin kimliğine bağlıyordu. İhsan'ın kararı: önce
@@ -82,18 +80,23 @@ gerektirmez.
 
 ## 6. Karar
 
-**Boş.** İhsan doldurur.
-
 ```
-Seçilen:            A / B / C / D / başka
-Gerekçe:
-Koda inecek yer:    app/config.py  (ADR koda inmezse karar değildir)
-G-12'ye ne olacak:
-Regresyon eşiği:    (API seçilirse 3 puan → ? ; ölçülen sd 1,13 puan)
-Geri alma koşulu:
+Seçilen:            B
+Karar veren:        İhsan Arvas, 2026-09-30
+Gerekçe:            API G-11'i vermiyor (%70,9 vs %80); B'nin maliyeti bir satır ve D'yi
+                    kapatmıyor. Müşteri sırası (önce kurgusal dış müşteri, sonra hastane)
+                    tam olarak çift modun kullanımı: demoda API, hastanede yerel.
+Koda inecek yer:    app/config.py — MODE varsayılanı "local"; API yalnız SORBI_MODE=api ile.
+                    Test: tests/test_depo_hijyeni.py::test_adr5_karar_kodla_ayni.
+                    Müşteri bağlantısında mod kilidi: İP-45 (PLAN Faz B).
+G-12'ye ne olacak:  Değişmedi. Yerel çıkarım için tanımlı; bugün karşılanmıyor (p95 21–33 sn).
+                    API koşumlarında G-12 hükmü verilmez (g12_kapsam_disi).
+Regresyon eşiği:    Değişmedi: bozulan − düzelen ≥ 3 VE McNemar p < 0,05 — bu kural API'nin
+                    ölçülen gürültüsünü (sd 1,13 puan) zaten kapsıyor.
+Geri alma koşulu:   D'ye geçiş (kurumsal katman API, DPA ile) ayrı bir ADR ile açılır;
+                    B'den D'ye geçiş yeniden yazım gerektirmez.
 ```
 
-**Öneri (bağlayıcı değil): B.** API G-11'i vermiyor; B'nin bugünkü maliyeti
-`config.py`'de bir satır; B, D'yi kapatmaz. 2026-09-30'daki müşteri sırası
-(önce kurgusal dış müşteri, sonra hastane) tam olarak B'nin tarif ettiği
-kullanım.
+**Sonuç:** "veri makineden çıkmaz" vaadi varsayılan olarak korunur. API modunu
+seçen kullanıcı bunu bilerek seçer ve o modda da gerçek değerler `mask_context`
+ile koşulsuz düşer (CLAUDE.md § 3.3).

@@ -5,6 +5,9 @@ from datetime import date
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # --- Model (ADR-1/5) ---
+# ADR-5 KABUL, seçenek B (İhsan, 2026-09-30): yerel varsayılan, API yalnız
+# SORBI_MODE=api ile açıkça seçilir. Varsayılan tests/test_depo_hijyeni.py'de
+# ADR'ye kilitli; biri değişirse öteki de değişmek zorunda.
 MODE = os.getenv("SORBI_MODE", "local")            # local | api
 OLLAMA_URL = os.getenv("SORBI_OLLAMA_URL", "http://localhost:11434")
 # Taban model — ADR-1 rev.2 (2026-08-16). Ölçümle seçildi, tahminle değil:

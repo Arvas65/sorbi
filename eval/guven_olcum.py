@@ -24,9 +24,11 @@ bildirim döngüsüdür: kontrolü değiştir, 3 saniyede etkisini gör.
 Kullanım:  python eval/guven_olcum.py [--limit N]
 """
 import argparse
+import hashlib
 import inspect
 import json
 import os
+import platform
 import re
 import sys
 
@@ -318,6 +320,18 @@ def _ozet_satiri(r: dict) -> str:
             f"yakalanan={r['yakalanan']} zbos={len(r['zamana_bagli_bos'])}")
 
 
+def makine_kimligi() -> str:
+    """Karne satırının hangi makineye ait olduğu (BULGU-27).
+
+    Ana makine adı depoya yazılmaz (depo herkese açık): adın SHA-256'sının
+    ilk 8 hanesi kullanılır. `SORBI_MAKINE` ile açıkça verilebilir.
+    """
+    acik = os.getenv("SORBI_MAKINE", "").strip()
+    if acik:
+        return acik
+    return hashlib.sha256(platform.node().encode("utf-8")).hexdigest()[:8]
+
+
 def _gecmise_yaz(r: dict) -> None:
     """Karneyi ekle-only bir günlüğe yazar ve bir öncekiyle karşılaştırır.
 
@@ -330,26 +344,40 @@ def _gecmise_yaz(r: dict) -> None:
     kuralı. Test süiti içindeki 3 soruluk bir koşum gerçek günlüğe yazılmış
     ve İhsan'ın makinesinde "ÖNCEKİ KARNE: FARKLI" diye yanlış alarm
     üretmişti. Testin üretim kanıtını kirletmesi başlı başına bir kusurdur.
+
+    YABANCI KOŞUM REFERANS OLMAZ (BULGU-27, 2026-09-30). "Aynı makinenin"
+    yukarıda yazıyordu ama kodda yoktu: referans günlüğün son satırıydı,
+    kimin yazdığına bakılmadan. Bulut oturumunun satırı araya girince bir
+    sonraki koşumun regresyon nöbetçisi sessizce devre dışı kalıyordu. Artık
+    her satır `makine=` taşır ve kıyas yalnız aynı damgalı son kayıtla
+    yapılır. Damgasız eski satırlar hiçbir makinenin referansı değildir.
     """
     if r["gold_sayisi"] < TAM_SET:
         print(f"\nÖNCEKİ KARNE: kısmi koşum ({r['gold_sayisi']}/{TAM_SET} soru), "
               "geçmişe yazılmadı.")
         return
     satir = _ozet_satiri(r)
+    ben = makine_kimligi()
     onceki = None
+    yabanci = 0
     try:
         if os.path.exists(GECMIS):
             with open(GECMIS, encoding="utf-8") as f:
                 eskiler = [x.strip() for x in f if x.startswith("KARNE_OZET")]
-            onceki = eskiler[-1] if eskiler else None
+            benim = [x for x in eskiler if x.endswith(f" makine={ben}")]
+            yabanci = len(eskiler) - len(benim)
+            if benim:
+                onceki = benim[-1].rsplit(" makine=", 1)[0]
         os.makedirs(os.path.dirname(GECMIS), exist_ok=True)
         with open(GECMIS, "a", encoding="utf-8") as f:
-            f.write(satir + "\n")
+            f.write(f"{satir} makine={ben}\n")
     except OSError as e:
         print(f"\n  ~ Karne geçmişi yazılamadı ({type(e).__name__}); ölçüm geçerli.")
 
     if onceki is None:
-        print("\nÖNCEKİ KARNE: yok — bu koşum taban olacak.")
+        ek = (f" ({yabanci} satır başka makineye ya da damgasız eski kayda ait, "
+              "kıyasa alınmadı)") if yabanci else ""
+        print(f"\nÖNCEKİ KARNE: bu makinede (makine={ben}) yok — bu koşum taban olacak.{ek}")
     elif onceki == satir:
         print("\nÖNCEKİ KARNE: birebir aynı.")
     else:

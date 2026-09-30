@@ -100,24 +100,30 @@ def test_adr_dosyalarinin_durumu_yazili():
         assert re.search(r"\*\*Durum:\*\*", bas), f"{ad}: 'Durum:' satırı yok."
 
 
-def test_adr5_karar_bolumu_bos_ve_ship_kapisi():
-    """ADR-5'in kararı İhsan'ındır; nöbet doldurmaz.
+def test_adr5_karar_kodla_ayni():
+    """ADR-5 kabul edildi (İhsan, 2026-09-30): seçenek B — yerel varsayılan.
 
-    Bu test bir gün kırıldığında sebebi ya kararın verilmiş olmasıdır (o zaman
-    test güncellenir) ya da birinin kapıyı kendi başına geçmesidir — ikincisi
-    `00-IS-HATTI.md` § 3'e göre bir süreç ihlalidir ve Review'a bulgu olarak
-    yazılır.
+    Karar yalnız belgede durursa karar değildir (CLAUDE.md § 7). Bu test iki
+    şeyi birbirine kilitler: ADR'nin seçtiği harf ve `config.py`'deki
+    varsayılan mod. Biri değişip öteki değişmezse CI kırmızıya döner.
+
+    Varsayılan, ortam değişkeninden bağımsız olarak **kaynaktan** okunur:
+    testi koşan makinede `SORBI_MODE=api` tanımlı olabilir (İhsan'ınkinde öyle).
     """
-    yol = os.path.join(ADR_DIZIN, "ADR-5-api-modu.md")
-    metin = open(yol, encoding="utf-8").read()
-    assert "TASLAK" in metin[:400], "ADR-5 taslak olduğunu söylemiyor."
+    metin = open(os.path.join(ADR_DIZIN, "ADR-5-api-modu.md"), encoding="utf-8").read()
+    assert "KABUL" in metin[:400], "ADR-5 kabul edildiğini söylemiyor."
     assert "Ship kapısıdır" in metin
     secilen = re.search(r"^Seçilen:\s*(.*)$", metin, re.MULTILINE)
     assert secilen, "ADR-5'te 'Seçilen:' satırı yok."
-    assert secilen.group(1).strip() == "A / B / C / D / başka", (
-        "ADR-5'in karar satırı doldurulmuş. Karar İhsan'ınsa bu test "
-        "güncellenmeli; değilse bir kapı izinsiz geçilmiş demektir."
-    )
+    assert secilen.group(1).strip() == "B", (
+        f"ADR-5 '{secilen.group(1).strip()}' diyor; kod B'ye göre yazılı. "
+        "Karar değiştiyse config.py ve bu test birlikte güncellenir.")
+
+    kaynak = open(os.path.join(KOK, "app", "config.py"), encoding="utf-8").read()
+    varsayilan = re.search(r'os\.getenv\("SORBI_MODE",\s*"([^"]+)"\)', kaynak)
+    assert varsayilan, "config.py'de SORBI_MODE varsayılanı bulunamadı."
+    assert varsayilan.group(1) == "local", (
+        f"ADR-5 B: varsayılan mod 'local' olmalı, config '{varsayilan.group(1)}' diyor.")
 
 
 def test_yasak_yollar_listesi_gitignore_ile_tutarli():

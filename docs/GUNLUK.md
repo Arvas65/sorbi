@@ -4,6 +4,12 @@ Her oturum en üste üç satır ekler: ne yapıldı · ne ölçüldü · ne aç�
 2026-08-11 … 09-07 arası 1.455 satırlık eski günlük arşivde
 (`ip-46-cekirdek` dalı, `docs/is-hatti/GUNLUK.md`).
 
+## 2026-09-30 (gece) — Kapılar geçildi, Faz B onaylandı
+
+**Yapıldı:** master `9c27629 → 4579208` hızlı-ileri sarıldı (İhsan'ın Ship kararı). ADR-5 **KABUL, B**
+— `config.py`'ye ve bir teste kilitlendi. BULGU-27 DÜZELT: karne satırına `makine=` damgası.
+BULGU-18 SONRA (İP-56). **Açık:** Faz B — İP-45, İP-53a (Claude), İP-43 (İhsan).
+
 ## 2026-09-30 (akşam) — BULGU-15 kapandı
 
 **Yapıldı:** İhsan admin parolasını döndürdü; public geçmişteki hash değersiz. **Açık:** toparla PR merge · ADR-5 § 6 · BULGU-18/27 · Faz B Plan onayı.

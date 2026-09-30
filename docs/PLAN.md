@@ -5,7 +5,7 @@
 numaraları (İP-43…58) ve SPEC gereksinimleri aynen geçerli; değişen **sıra** ve
 **çerçeve**.
 
-**Durum:** Faz A bu PR ile kapanıyor. **Faz B, Plan kapısında — İhsan'ın onayını bekliyor.**
+**Durum:** Faz A ✔ (2026-09-30). **Faz B ONAYLANDI** (İhsan, 2026-09-30) — Build'de.
 
 ---
 
@@ -61,8 +61,8 @@ değil; darboğaz İhsan'ın kalemleri ve kapıları.
 - `46-yama` (BULGU-35) uygulandı; ADR'ler `docs/kararlar/`'da, ADR-5 güncel taslak
 - **İhsan'ın bu hafta yapacağı üç şey** (her biri ≤15 dk):
   1. ~~`parola.bat` ile admin parolasını döndür~~ (BULGU-15) — ✔ 2026-09-30
-  2. **Bu PR'ı merge et** (Ship)
-  3. ADR-5 § 6'yı doldur (öneri B), BULGU-18 ve BULGU-27'yi triyajla
+  2. ~~Bu PR'ı merge et~~ — ✔ master `4579208`
+  3. ~~ADR-5 § 6~~ — ✔ **B** · ~~BULGU-27~~ DÜZELT ✔ · BULGU-18 SONRA (İP-56)
 
 ### Faz B — Uçtan uca ince dilim ("walking skeleton") · ~3 hafta
 
@@ -141,6 +141,6 @@ değişmez, damga değişir.
 ## 6. Kapı
 
 ```
-Faz A  ✔ bu PR  →  [MERGE = Ship — İhsan]
-Faz B  ◀ PLAN KAPISI — İhsan:  ONAY  /  DEĞİŞTİR: …  /  DUR
+Faz A  ✔ merge edildi (2026-09-30)
+Faz B  ✔ ONAY (2026-09-30) → BUILD
 ```
