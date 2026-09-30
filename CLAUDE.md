@@ -96,7 +96,8 @@ Sıradaki iş uçtan uca ince dilim — `docs/PLAN.md` Faz B.
 - **ADR-8** anlam katmanı · **ADR-9** anlam modeli müşterinin makinesinde dosya
 - **ADR-10 KABUL** (2026-09-30) veri sınırı ve anonimleştirme: sağlık/kamu verisi yabancı
   LLM'e hiçbir koşulda çıkmaz; diğer kişisel veri yalnız takma adlı
-- Lisans çift: çekirdek açık, kurumsal katman kapalı
+- **Lisans (2026-09-30):** ticari, tüm hakları saklı; depo özel. `c0cfbc8`'e kadarki
+  sürüm MIT ile yayımlandı ve öyle kalır (geri alınamaz). Çift lisans rafa kalktı
 - FastAPI çekirdek + Streamlit istemci; tam yeniden yazım yok
 - Roller: güvenlik-kritik modülleri (yürütücü, kanarya) İhsan yazar
 - **2026-09-30** toparlama: gece hattı emekli, teslimat PR, FDE planı, müşteri

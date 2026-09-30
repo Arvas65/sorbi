@@ -1,21 +1,40 @@
-MIT License
+SorBI — Ticari Lisans / Commercial License
 
-Copyright (c) 2026 İhsan Arvas
+Copyright (c) 2026 İhsan Arvas. Tüm hakları saklıdır. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+TÜRKÇE
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Bu yazılım ve eşlik eden belgeler ("Yazılım") İhsan Arvas'ın mülkiyetindedir ve
+5846 sayılı Fikir ve Sanat Eserleri Kanunu ile korunur. Hak sahibiyle yapılmış
+yazılı bir lisans sözleşmesi olmaksızın Yazılım'ın kopyalanması, çoğaltılması,
+değiştirilmesi, dağıtılması, alt lisanslanması, satılması, kiralanması, hizmet
+olarak sunulması veya tersine mühendisliğe konu edilmesi yasaktır.
+
+Değerlendirme, pilot ve ticari kullanım için lisans talepleri: arvass125@gmail.com
+
+GEÇİŞ NOTU: Bu depo 2026-09-30 tarihine, `c0cfbc8` commit'ine kadar (bu commit
+dahil) MIT Lisansı ile yayımlanmıştır. O tarihe kadar MIT ile edinilmiş kopyalar
+MIT şartlarına tabi kalmaya devam eder. Bu dosyanın yürürlüğe girdiği commit'ten
+sonra yapılan her değişiklik yalnızca bu Ticari Lisans'a tabidir.
+
+ENGLISH
+
+This software and its accompanying documentation (the "Software") are the
+property of İhsan Arvas and are protected by Turkish Law No. 5846 on
+Intellectual and Artistic Works. Copying, reproducing, modifying, distributing,
+sublicensing, selling, renting, offering as a service, or reverse engineering
+the Software is prohibited without a written license agreement with the
+copyright holder.
+
+Licensing inquiries for evaluation, pilot and commercial use: arvass125@gmail.com
+
+TRANSITION NOTE: Up to and including commit `c0cfbc8` (2026-09-30), this
+repository was published under the MIT License. Copies obtained under the MIT
+License before that date remain subject to its terms. Every change made after
+the commit that introduces this file is licensed solely under this Commercial
+License.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY ARISING FROM THE USE OF THE SOFTWARE, EXCEPT AS PROVIDED IN A SEPARATE
+WRITTEN LICENSE AGREEMENT.

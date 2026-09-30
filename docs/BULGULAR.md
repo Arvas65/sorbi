@@ -18,6 +18,7 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 | 44 | Gömme modeli (`paraphrase-multilingual-MiniLM`) ilk çalışmada HuggingFace'ten indiriliyor: tedarik zinciri riski ve kurum içi (internetsiz) kurulumda çalışmama | **açık** | GÜVENLİK K-14, G3: model dosyası sürüm + özetle sabitlenip pakete girer |
 
 | 47 | **Giriş formunda deneme sınırı yok** — parola denemesi sınırsız | **açık** | GÜVENLİK G2: hesap kilidi / artan bekleme + güvenlik olay kaydı (K-11) |
+| 49 | `test_soru_sor_cevap_al_ve_sayfa_yeniden_cizilir` 2026-09-30'da tam süitte **bir kez** düştü; ardından 13 tam koşumda ve 6 tek başına koşumda hiç düşmedi. Hata metni kaydedilmedi (çıktının yalnız son satırı alınmıştı) | **açık — gözlem** | Kök neden bilinmiyor; "düzeldi" sayılmaz. Tekrarlarsa test tam hata metnini basar (`_hatalar`). CI'daki üç Python koşumu izlenir. Ders: kararsızlık şüphesinde çıktının tamamı saklanır |
 | 48 | **İlk kurulum ekranı, ekrana ilk ulaşanı yönetici yapıyor.** Kurum içinde kabul edilebilir; internete açık kurulumda (Azure demo) yönetici hesabı ele geçirme | **açık — Azure öncesi BLOK** | İlk yönetici kurulumu komut satırından ya da tek kullanımlık kurulum anahtarıyla; arayüzden kaldırılır |
 
 ## 2026-09-30 duman testinde kapananlar
@@ -47,4 +48,4 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 | 15 | `admin` salt+hash'i public depo geçmişinde (`884f8d9`) | **kapandı** | 2026-09-30: İhsan parolayı döndürdü; geçmişteki hash artık değersiz |
 | 41 | Docker imajı `docs/kanit`'i taşıyordu ("paket kanıt taşımaz" kuralı imaja uygulanmamıştı) | **kapandı** | `.dockerignore`: `docs/`, `*.bat`, `.claude/` |
 
-## Sıradaki numara: **49**
+## Sıradaki numara: **50**

@@ -84,4 +84,4 @@ docs/PLAN.md    yol haritası (FDE)       docs/kararlar/  ADR'ler
 docs/tasarim/   v4 SPEC, mimari          docs/kanit/     ölçüm tablosu
 ```
 
-Çalışma düzeni ve alınmış kararlar: [CLAUDE.md](CLAUDE.md). Lisans: çekirdek MIT, kurumsal katman ayrı.
+Çalışma düzeni ve alınmış kararlar: [CLAUDE.md](CLAUDE.md). Lisans: ticari, tüm hakları saklı ([LICENSE](LICENSE)); `c0cfbc8`'e kadarki sürüm MIT ile yayımlanmıştı.
