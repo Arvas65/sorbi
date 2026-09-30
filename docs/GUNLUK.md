@@ -4,6 +4,17 @@ Her oturum en üste üç satır ekler: ne yapıldı · ne ölçüldü · ne aç�
 2026-08-11 … 09-07 arası 1.455 satırlık eski günlük arşivde
 (`ip-46-cekirdek` dalı, `docs/is-hatti/GUNLUK.md`).
 
+## 2026-09-30 (gece, geç) — Güvenlik turu G1
+
+**Yapıldı:** Türkiye çerçevesi kaynaktan doğrulandı (KVKK md. 6/9 + 7499, Kurul 2018/10 ve
+2019/10, Sağlık Verileri Yön., 2019/12, 7545, Üretken YZ Rehberi) → `docs/guvenlik/GUVENLIK.md`,
+ADR-10 (öneri). Kodda: anonimleştirici (izin listesi, geri dönüşlü), Türkiye'ye özgü
+doğrulamalı algılayıcılar, **çıkış kapısı** (`_api_chat`, varsayılan kapalı). **BULGU-43**
+(v3 kilidi atlıyordu) kapandı. `urllib3` 2.8.0, `oauthlib` 4.0.0. CI'a pip-audit + gitleaks.
+**Ölçüldü:** pytest 781 · gold 101/101 · karne değişmedi · gitleaks ağaç + 34 commit temiz ·
+pip-audit: chromadb 4 açık KABUL (gerekçeli, bekçili).
+**Açık:** ADR-10 onayı · BULGU-42 (diskte düz metin) · BULGU-44 (gömme modeli) · G2.
+
 ## 2026-09-30 (gece) — Kapılar geçildi, Faz B onaylandı
 
 **Yapıldı:** master `9c27629 → 4579208` hızlı-ileri sarıldı (İhsan'ın Ship kararı). ADR-5 **KABUL, B**

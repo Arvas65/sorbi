@@ -171,10 +171,14 @@ def doctor(mode: str) -> int:
         from app import generator
         print("\n  Tek soruluk deneme koşuluyor...")
         t0 = time.time()
+        from app.guvenlik import cikis_kapisi
         try:
-            sonuc = generator.generate_api(
-                "kaç doktor var",
-                "TABLO doktor\nKOLONLAR: doktor_id (INTEGER), ad (TEXT)")
+            # Deneme sentetik bir bağlamla yapılır; izin demo DB'ye verilir.
+            demo_db = f"sqlite:///{os.path.join(config.DEMO_DIZINI, 'hospital.db')}"
+            with cikis_kapisi.izin(demo_db):
+                sonuc = generator.generate_api(
+                    "kaç doktor var",
+                    "TABLO doktor\nKOLONLAR: doktor_id (INTEGER), ad (TEXT)")
         except generator.KotaHatasi as e:
             print(f"  ! KOTA/HIZ SINIRI: {str(e)[:300]}")
             print("\n    Ölçüm ALINMAMALI: kota aşımı doğruluk kaybı gibi görünür.")
@@ -1090,20 +1094,28 @@ def main(argv=None) -> int:
     from app.schema_rag import ContextIndex
     idx = ContextIndex(config.DB_URL)
 
-    results = []
-    for i, item in enumerate(items, 1):
-        # Tek bir sorunun beklenmeyen hatası 50 soruluk koşumu düşürmemeli.
-        # Saha kaydı (2026-08-16): 30. soruda çöken koşum 29 sorunun sonucunu götürdü.
-        try:
-            rec = run_one(item, idx, args.mode, gen_mod)
-        except Exception as e:  # noqa: BLE001
-            rec = {"id": item["id"], "soru": item["soru"], "zorluk": item["zorluk"],
-                   "join": item["join"], "dogru": False, "sql": "", "onarim": False,
-                   "sure_s": 0.0, "asama": f"kosucu_hatasi: {type(e).__name__}: {str(e)[:100]}"}
-        results.append(rec)
-        isaret = "+" if rec["dogru"] else "-"
-        print(f"[{i:02d}/{len(items)}] {isaret} ({rec['zorluk']}, {rec['join']} join, "
-              f"{rec.get('sure_s', 0):.1f} sn) {item['soru'][:55]}  [{rec['asama']}]")
+    # ADR-5 B / ADR-10: API ölçümü yalnız sentetik demo veritabanında alınabilir.
+    # Kilit devreye girerse ölçüm SESSİZCE yerelde koşmaz — durur. Aksi hâlde
+    # rapor "api" damgası taşıyıp yerel modeli ölçmüş olurdu (BULGU-03 sınıfı).
+    from app.guvenlik import cikis_kapisi
+    with cikis_kapisi.izin(config.DB_URL, istenen=args.mode) as karar:
+        if karar.kilitlendi:
+            print(f"ÖLÇÜM ALINMADI: {karar.not_}")
+            return 2
+        results = []
+        for i, item in enumerate(items, 1):
+            # Tek bir sorunun beklenmeyen hatası 50 soruluk koşumu düşürmemeli.
+            # Saha kaydı (2026-08-16): 30. soruda çöken koşum 29 sorunun sonucunu götürdü.
+            try:
+                rec = run_one(item, idx, args.mode, gen_mod)
+            except Exception as e:  # noqa: BLE001
+                rec = {"id": item["id"], "soru": item["soru"], "zorluk": item["zorluk"],
+                       "join": item["join"], "dogru": False, "sql": "", "onarim": False,
+                       "sure_s": 0.0, "asama": f"kosucu_hatasi: {type(e).__name__}: {str(e)[:100]}"}
+            results.append(rec)
+            isaret = "+" if rec["dogru"] else "-"
+            print(f"[{i:02d}/{len(items)}] {isaret} ({rec['zorluk']}, {rec['join']} join, "
+                  f"{rec.get('sure_s', 0):.1f} sn) {item['soru'][:55]}  [{rec['asama']}]")
 
     ozet = ozetle(results)
     damga = _damga(args.mode)

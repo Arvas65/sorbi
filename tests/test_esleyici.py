@@ -68,7 +68,7 @@ def test_kimlik_numarasi_maskelenir():
     kayit = []
     LlmEsleyici(_sahte({"olculer": ["ciro"]}, kayit)).esle("12345678901 hastanın cirosu", _sozluk())
     giden = json.dumps(kayit, ensure_ascii=False)
-    assert "12345678901" not in giden and "[KIMLIK-NO]" in giden
+    assert "12345678901" not in giden                  # uzun sayı jetonlanır (ADR-10)
 
 
 def test_istem_kolon_ya_da_sql_tasimaz():

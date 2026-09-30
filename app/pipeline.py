@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from app import audit, config, executor, generator, guven
 from app.akis.baglam import IndeksDeposu, OturumBaglami
+from app.guvenlik import cikis_kapisi
 from app.preprocess import resolve_dates
 from app.schema_rag import ContextIndex
 from app.validator import validate_and_transpile
@@ -25,6 +26,9 @@ class Answer:
     # B-7: sorgu çalıştı ve tablo döndü diye cevap doğru değildir. Bu liste
     # boşsa sistem şüphelenmiyor demektir — doğru olduğunu söylemiyor.
     bayraklar: list = field(default_factory=list)
+    # ADR-5 B / ADR-10: istenen mod bu bağlantıda kilitlendiyse neden. Boş değilse
+    # arayüz gösterir — kullanıcı neden yerelde koştuğunu bilmeli (değişmez 6).
+    mod_notu: str = ""
 
 
 def varsayilan_baglam() -> OturumBaglami:
@@ -122,6 +126,19 @@ def ask(question: str, user: str = "demo", mode: str = None,
     annotated, dates = resolve_dates(question)
     context, _tables = idx.retrieve(question)
 
+    # Mod kararı BAĞLANTIYA göre verilir (ADR-5 B, SPEC E-6). Bulgu 2026-09-30:
+    # v3 yolu `config.MODE`'u doğrudan kullanıyordu; SORBI_MODE=api tanımlı bir
+    # makinede bir müşteri veritabanına bağlanmak soruyu, şema bağlamını ve
+    # onarımda hatalı SQL ile DB hata iletisini dış servise gönderiyordu.
+    # Bütün LLM çağrıları izin bağlamının İÇİNDE yapılır; izin yoksa çıkış
+    # kapısı (`_api_chat`) çağrıyı durdurur — burası unutulsa bile.
+    with cikis_kapisi.izin(b.db_url, istenen=mode or config.MODE) as karar:
+        ans = _ask_llm(question, user, b, idx, annotated, dates, context, karar.mod)
+    ans.mod_notu = karar.not_
+    return ans
+
+
+def _ask_llm(question, user, b, idx, annotated, dates, context, mode) -> Answer:
     # 3: üretim (G-01)
     gen, used_mode = generator.generate(annotated, context, mode)
 

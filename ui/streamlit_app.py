@@ -59,6 +59,8 @@ with tab_soru:
         # Durum şeridi (Nielsen 1: durum görünür — renk + ikon + metin)
         etiket = {"local": "🖥️ yerel model", "api": "☁️ API (maskeli)", "manual": "⌨️ elle SQL"}
         st.caption(f"Mod: {etiket.get(ans.mode, ans.mode)} · süre: {ans.elapsed_s} sn")
+        if getattr(ans, "mod_notu", ""):
+            st.info("🔒 " + ans.mod_notu)
 
         if ans.resolved_dates:
             st.info("Tarih çözümleme (kural tabanlı, G-07): " + "; ".join(

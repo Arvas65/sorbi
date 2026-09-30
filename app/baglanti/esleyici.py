@@ -13,6 +13,10 @@ Görevi dar: Türkçe soruyu anlam modelinin SÖZLÜĞÜNDEKİ adlarla bir `Seci
 3. **Değerlerin gizliliği.** API modunda (ADR-5 B, değişmez 3) sözlükteki
    değer listeleri gerçek kolon değerleridir ve dışarı ÇIKMAZ: isteme yalnız
    ölçü/boyut adları gider. (2) sayesinde doğruluk bundan etkilenmez.
+4. **Sorunun anonimleştirilmesi** (ADR-10). API modunda soru dışarı çıkmadan
+   önce jetonlanır: kişi adı, TCKN, IBAN, sözlük değeri ... → `[KISI_1]`,
+   `[DEGER_1]`. Model jetonu kopyalar; jeton burada, yerelde gerçeğine döner.
+   Kasa yalnız bu çağrı boyunca bellekte yaşar.
 
 Sözleşme (portlar.Esleyici): `esle()` İSTİSNA FIRLATMAZ. Dönen `Secim`
 henüz anlam modeline karşı DOĞRULANMAMIŞTIR — o iş `Secim.kur()`'undur ve
@@ -26,6 +30,7 @@ from collections.abc import Callable
 
 from app.cekirdek.secim import EslemeSonucu, Secim
 from app.cekirdek.tipler import Filtre, Zaman, ZamanTanesi
+from app.guvenlik.anonimlestirici import Kasa, anonimlestir
 from app.preprocess import resolve_dates
 
 Sohbet = Callable[[list[dict]], str]
@@ -39,7 +44,8 @@ Kurallar:
 - Soru sözlükteki ölçülerle ifade edilemiyorsa "ifade_edilemez" alanına kısa gerekçe yaz.
 - Soru iki farklı ölçüye eşit derecede uyuyorsa TAHMİN ETME: "netlestirme" alanına
   tek bir soru, "secenekler" alanına aday ölçü adlarını yaz.
-- Filtre değerini kullanıcının yazdığı gibi yaz.
+- Filtre değerini kullanıcının yazdığı gibi yaz. Soruda [DEGER_1], [KISI_1] gibi köşeli
+  parantezli jetonlar varsa onları DEĞİŞTİRMEDEN, köşeli parantezleriyle kopyala.
 - Tarih aralığı HESAPLAMA; yalnız zaman kırılımı istendiyse (günlük/haftalık/aylık/
   çeyreklik/yıllık) "zaman_tanesi" alanına gun|hafta|ay|ceyrek|yil yaz.
 - İşleçler: esittir, esit_degil, icinde, araliginda, buyuk, kucuk, icerir.
@@ -49,9 +55,6 @@ Yalnız şu JSON'u döndür, başka hiçbir şey yazma:
 {"olculer": [], "boyutlar": [], "filtreler": [{"boyut": "", "islec": "", "degerler": []}],
  "zaman_tanesi": null, "sirala": null, "limit": null,
  "netlestirme": "", "secenekler": [], "ifade_edilemez": ""}"""
-
-_TCKN = re.compile(r"\b\d{11}\b")
-
 
 def _tr_kucuk(s: str) -> str:
     """Türkçe küçük harf: 'I'→'ı', 'İ'→'i'. str.lower() 'İ'yi 'i̇' yapar."""
@@ -135,7 +138,8 @@ class LlmEsleyici:
     `sohbet`: `[{"role", "content"}] -> str`. Yerel mod için
     `generator._ollama_chat`, API modu için `generator._api_chat` (bkz.
     `sohbet_sec`). Testte sahte bir işlev.
-    `degerleri_gonder`: yalnız YEREL modda True olabilir.
+    `degerleri_gonder`: yalnız YEREL modda True olabilir. False iken (API modu)
+    soru ayrıca anonimleştirilir (ADR-10).
     """
 
     def __init__(self, sohbet: Sohbet, degerleri_gonder: bool = False) -> None:
@@ -143,11 +147,12 @@ class LlmEsleyici:
         self._degerleri_gonder = degerleri_gonder
 
     def istem(self, soru: str, sozluk: dict) -> list[dict]:
-        """Giden mesajlar — ayrı ve açık, çünkü Sınır 1 testi tam olarak bunu denetler."""
+        """Giden mesajlar — `soru` burada ZATEN anonimleştirilmiş olmalıdır
+        (`esle` bunu yapar). Ayrı ve açık, çünkü Sınır 1 testi bunu denetler."""
         govde = json.dumps(_istem_sozlugu(sozluk, self._degerleri_gonder),
                            ensure_ascii=False, sort_keys=True)
         return [{"role": "system", "content": _SISTEM},
-                {"role": "user", "content": f"SÖZLÜK:\n{govde}\n\nSORU: {_TCKN.sub('[KIMLIK-NO]', soru)}\n\nJSON:"}]
+                {"role": "user", "content": f"SÖZLÜK:\n{govde}\n\nSORU: {soru}\n\nJSON:"}]
 
     def esle(self, soru: str, sozluk: dict) -> EslemeSonucu:
         try:
@@ -158,19 +163,26 @@ class LlmEsleyici:
     def _esle(self, soru: str, sozluk: dict) -> EslemeSonucu:
         if not isinstance(soru, str) or not soru.strip():
             return EslemeSonucu(hata="Soru boş.")
-        ham = self._sohbet(self.istem(soru, sozluk))
+        if self._degerleri_gonder:
+            giden, kasa = soru, Kasa()             # yerel mod: makineden çıkmıyor
+        else:
+            giden, kasa = anonimlestir(soru, sozluk)
+        ham = self._sohbet(self.istem(giden, sozluk))
         d = _json_ayikla(ham)
         if d is None:
             return EslemeSonucu(hata="Model çıktısı JSON olarak çözümlenemedi.", ham_cikti=str(ham)[:2000])
 
         neden = str(d.get("ifade_edilemez") or "").strip()
         if neden:
-            return EslemeSonucu(hata=f"Bu soru mevcut ölçülerle ifade edilemiyor: {neden}",
-                                ham_cikti=ham[:2000])
+            return EslemeSonucu(
+                hata=f"Bu soru mevcut ölçülerle ifade edilemiyor: {kasa.geri_cevir(neden)}",
+                ham_cikti=ham[:2000])
         soru_geri = str(d.get("netlestirme") or "").strip()
         if soru_geri:
-            return EslemeSonucu(netlestirme_sorusu=soru_geri, secenekler=_liste(d.get("secenekler")),
-                                ham_cikti=ham[:2000])
+            # Kullanıcıya gösterilen metin yerelde gerçeğine döner; ham_cikti
+            # (denetim izi) jetonlu kalır — kişisel veri taşımaz.
+            return EslemeSonucu(netlestirme_sorusu=kasa.geri_cevir(soru_geri),
+                                secenekler=_liste(d.get("secenekler")), ham_cikti=ham[:2000])
 
         zaman, zaman_notu = _zaman(soru, d.get("zaman_tanesi"))
         if zaman_notu:
@@ -183,7 +195,8 @@ class LlmEsleyici:
             boyut = str(f["boyut"])
             filtreler.append(Filtre(
                 boyut=boyut, islec=str(f.get("islec") or "esittir"),
-                degerler=tuple(_degeri_oturt(boyut, v, sozluk) for v in _liste(f.get("degerler")))))
+                degerler=tuple(_degeri_oturt(boyut, kasa.geri_cevir(v), sozluk)
+                               for v in _liste(f.get("degerler")))))
 
         limit = d.get("limit")
         try:

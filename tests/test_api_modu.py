@@ -7,6 +7,19 @@ Bu testlerin ikisi de bir vaadi koruyor:
 import pytest
 
 from app import config, generator
+from app.guvenlik import cikis_kapisi
+
+
+@pytest.fixture
+def demo_izni():
+    """Bu dosyadaki ağ davranışı testleri SENTETİK demo veritabanı bağlamında koşar.
+
+    Autouse DEĞİL, bilerek: izin, istenmediği bir teste sızmamalı. İzinsiz
+    çağrının hiç ağa çıkmadığı `tests/test_cikis_kapisi.py`'de sınanır.
+    """
+    import os
+    with cikis_kapisi.izin(f"sqlite:///{os.path.join(config.DEMO_DIZINI, 'hospital.db')}"):
+        yield
 
 # ------------------------------------------------------------------ gizlilik
 
@@ -78,7 +91,7 @@ class _Yanit:
         return {"choices": [{"message": {"content": self.text}}]}
 
 
-def test_429_sonrasi_yeniden_deneniyor(monkeypatch):
+def test_429_sonrasi_yeniden_deneniyor(monkeypatch, demo_izni):
     cagri = {"n": 0}
 
     def post(*a, **k):
@@ -93,7 +106,7 @@ def test_429_sonrasi_yeniden_deneniyor(monkeypatch):
     assert cagri["n"] == 3
 
 
-def test_kota_tukenirse_ayri_hata_turu(monkeypatch):
+def test_kota_tukenirse_ayri_hata_turu(monkeypatch, demo_izni):
     monkeypatch.setattr(generator.requests, "post", lambda *a, **k: _Yanit(429, "quota"))
     monkeypatch.setattr(generator.time, "sleep", lambda s: None)
     with pytest.raises(generator.KotaHatasi):
@@ -155,7 +168,7 @@ def _sahte_ucnokta(cagrilar, seed_reddet=True):
     return post
 
 
-def test_seed_reddedilirse_alansiz_tekrar_deneniyor(monkeypatch):
+def test_seed_reddedilirse_alansiz_tekrar_deneniyor(monkeypatch, demo_izni):
     cagrilar = []
     monkeypatch.setattr(generator, "_seed_kabul", None)
     monkeypatch.setattr(generator.config, "API_SEED_GONDER", None)
@@ -168,7 +181,7 @@ def test_seed_reddedilirse_alansiz_tekrar_deneniyor(monkeypatch):
     assert "SELECT 1" in sonuc, "kullanıcı cevabı almalı — düşüş sessiz olmamalı"
 
 
-def test_ret_bir_kez_ogreniliyor(monkeypatch):
+def test_ret_bir_kez_ogreniliyor(monkeypatch, demo_izni):
     """Her soruda bir kayıp istek yapmanın anlamı yok."""
     cagrilar = []
     monkeypatch.setattr(generator, "_seed_kabul", None)
@@ -182,7 +195,7 @@ def test_ret_bir_kez_ogreniliyor(monkeypatch):
     assert len(cagrilar) == 1 and "seed" not in cagrilar[0]
 
 
-def test_kabul_eden_uc_noktada_seed_kaliyor(monkeypatch):
+def test_kabul_eden_uc_noktada_seed_kaliyor(monkeypatch, demo_izni):
     """OpenAI ve vLLM `seed`'i tanır; onlarda alan düşürülmemeli."""
     cagrilar = []
     monkeypatch.setattr(generator, "_seed_kabul", None)
@@ -196,7 +209,7 @@ def test_kabul_eden_uc_noktada_seed_kaliyor(monkeypatch):
     assert generator._seed_kabul is True
 
 
-def test_ilgisiz_400_seed_e_yorulmuyor(monkeypatch):
+def test_ilgisiz_400_seed_e_yorulmuyor(monkeypatch, demo_izni):
     """Her 400'ü seed'e yormak, gerçek bir istem hatasını sessizce yutardı."""
     monkeypatch.setattr(generator, "_seed_kabul", None)
     monkeypatch.setattr(generator.config, "API_SEED_GONDER", None)

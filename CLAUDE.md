@@ -44,7 +44,9 @@ Birini bozan değişiklik geri alınır.
 2. **Üretilen SQL her zaman gösterilir.** Hata durumunda bile.
 3. **Yerel mod varsayılandır**, veri makineden çıkmaz. API modunda dış servise
    yalnız şema metaverisi gider; gerçek değerler `generator.mask_context()` ile
-   **koşulsuz** düşürülür. Bu bir ayara bağlanamaz.
+   **koşulsuz** düşürülür. Bu bir ayara bağlanamaz. Dışarı giden her LLM isteği
+   **çıkış kapısından** geçer (ADR-10): izin bağlamı yoksa ya da gövdede kişisel
+   veri kalmışsa istek gönderilmez.
 4. **Ölçülmemiş şey iddia edilmez.** Rapor yalnız çalıştırılmış sayıyı yazar.
 5. **Kanıt dosyasının üzerine yazılmaz.** Her koşum damgalı ve benzersiz.
 6. **Hiçbir hata sessizce yutulmaz.** `except: pass` yasak.
@@ -59,12 +61,14 @@ Birini bozan değişiklik geri alınır.
 | `app/baglanti/` | Çekirdeğin kenarları — anlam deposu (diğer portlar henüz yok, bkz. PLAN) |
 | `app/guven.py` | B-7 sessiz yanlış kontrolleri (v3 yolu) |
 | `app/validator.py` | Güvenlik kapısı — asla fırlatmaz |
+| `app/guvenlik/` | Anonimleştirici, kişisel veri algılayıcıları, **çıkış kapısı** (ADR-10) |
 | `app/executor.py` | v3 yürütücü — **İP-43 ile değişecek** |
 | `ui/` | Streamlit — bugün **yalnız v3 serbest SQL yolunu** gösteriyor |
 | `eval/evaluate.py` | 101 soruluk ölçüm · `eval/guven_olcum.py` mutasyon karnesi |
 | `tests/cekirdek/altin/` | Derleyici altın çiftleri (43) |
 | `docs/PLAN.md` · `docs/BULGULAR.md` · `docs/GUNLUK.md` | Plan, bulgular, oturum günlüğü |
 | `docs/kararlar/` | ADR'ler · `docs/tasarim/` v4 SPEC, MİMARİ |
+| `docs/guvenlik/GUVENLIK.md` | Türkiye mevzuat haritası, tehdit modeli, kontrol kataloğu |
 | `docs/kanit/` | Ölçüm tablosu, karne geçmişi, iki taban koşum |
 
 Arşiv (hiçbiri silinmedi): `olcum-otomatik` dalı gece hattını ve tüm kanıtı,
@@ -90,6 +94,8 @@ Sıradaki iş uçtan uca ince dilim — `docs/PLAN.md` Faz B.
 - **ADR-3** Chroma RAG · **ADR-4** sqlglot ile lehçe taşınabilirliği
 - **ADR-5 KABUL — B** (2026-09-30): yerel varsayılan, API açıkça seçilir. `config.py`'ye ve teste kilitli
 - **ADR-8** anlam katmanı · **ADR-9** anlam modeli müşterinin makinesinde dosya
+- **ADR-10** veri sınırı ve anonimleştirme — **ÖNERİ**: sağlık/kamu verisi yabancı
+  LLM'e hiçbir koşulda çıkmaz; diğer kişisel veri yalnız takma adlı
 - Lisans çift: çekirdek açık, kurumsal katman kapalı
 - FastAPI çekirdek + Streamlit istemci; tam yeniden yazım yok
 - Roller: güvenlik-kritik modülleri (yürütücü, kanarya) İhsan yazar

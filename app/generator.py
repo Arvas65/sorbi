@@ -11,6 +11,7 @@ import time
 import requests
 
 from app import config
+from app.guvenlik import cikis_kapisi
 
 _log = logging.getLogger(__name__)
 
@@ -265,7 +266,12 @@ def _api_chat(messages: list, deneme: int = 4) -> str:
     Ücretsiz katmanlarda (ör. Gemini) hız sınırı normaldir ve geçicidir.
     Beklemeden pes etmek, geçici bir sınırı kalıcı bir başarısızlık gibi
     ölçüm sonucuna yazar.
+
+    GÜVENLİK (ADR-10): SorBI'den dışarı giden her LLM isteği buradan geçer ve
+    ilk iş çıkış kapısından geçer — izin bağlamı yoksa ya da gövdede kişisel
+    veri kalmışsa istek GÖNDERİLMEZ (`cikis_kapisi.GuvenlikEngeli`).
     """
+    cikis_kapisi.kontrol(messages)
     if config.API_BEKLEME_S > 0:
         time.sleep(config.API_BEKLEME_S)
     bekleme = 2.0

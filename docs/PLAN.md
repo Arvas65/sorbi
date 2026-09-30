@@ -92,7 +92,7 @@ Anlam modeli bu fazda **elle yazılmış bir dosyadan** yüklenir (hastane için
 | **İP-51/52** | Ön-doldurma zaten var (`on_doldurma.py`); **etiketleme sihirbazı** + değer sözlüğü + satır sayısı göstergesi (R-6'nın çaresi) | Claude yazar, **İhsan UX triyajı** | 20 tabloda tek oturumda biter; etiketlenmemiş tablo sorguya girmez ve bu yazılır |
 | **İP-53b** | Eşleyici tam: netleştirme soruları + zaman tanesi | Claude | Belirsiz soruda soru sorar, tahmin etmez |
 | **İP-54** | **Kanarya:** tam oturum sonrası kanarya dizesi ne dışarı giden gövdelerde ne diskte | **İhsan** (gizlilik-kritik) | Kanarya yeşil — hastane pilotunun önkoşulu |
-| **C-2** | **Azure dağıtımı:** Container Apps + Azure Database for PostgreSQL; anahtar Key Vault'tan (BULGU-40); IaC (Bicep) depoda | İhsan yapar, Claude eşlik eder | Canlı URL; sır imajda ve depoda yok; kapatma/açma tek komut |
+| **C-2** | **Azure dağıtımı:** Container Apps + Azure Database for PostgreSQL; anahtar Key Vault'tan (BULGU-40); IaC (Bicep) depoda. **Yalnız sentetik veri:** yabancı bulut KVKK md. 9 anlamında yurt dışı aktarımdır; müşteri verisi buraya girmez (docs/guvenlik § 1) | İhsan yapar, Claude eşlik eder | Canlı URL; sır imajda ve depoda yok; kapatma/açma tek komut |
 
 **Faz C sonu:** H-3 kabul demosu — ekip dışından biri Marmara DB'sini bağlar,
 ≤30 dk etiketler, 3 soru, **3 kullanılabilir pano, elle düzeltme yok.**
@@ -108,6 +108,9 @@ Oturum kaydedilir.
 | **D-2** | 10 dk İngilizce demo videosu | Kayıt |
 
 ### Faz E — Müşteri 2: hastane pilotu · izne bağlı
+
+**Güvenlik kapısı** (`docs/guvenlik/GUVENLIK.md` § 5): G2 + G3 + G4 tamam, kanarya
+yeşil, yalnız kurum içi kurulum. Ticari takvimle esnetilmez.
 
 Yerel mod, salt-okunur replika, kanarya yeşil, KVKK değerlendirmesi yazılı.
 Kapsamı Faz D'nin sonunda, pilotun cevabına göre planlanır. Bugünden
