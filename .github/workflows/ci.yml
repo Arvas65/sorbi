@@ -48,10 +48,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # Yalnız core + dev kurulur: RAG katmanı (torch) CI'da gereksiz.
-      # schema_rag, Chroma yokken anahtar-kelime moduna düşer — bu davranış bilinçlidir.
-      - name: Bağımlılıklar (core + dev)
-        run: pip install -r requirements/core.txt -r requirements/dev.txt
+      # core + ui + dev kurulur: RAG katmanı (torch) CI'da gereksiz — schema_rag,
+      # Chroma yokken anahtar-kelime moduna düşer (bilinçli). ui, arayüz duman testi
+      # içindir (BULGU-46: arayüz bir ay çöktü, hiçbir test arayüzü çalıştırmıyordu).
+      - name: Bağımlılıklar (core + ui + dev)
+        run: pip install -r requirements/core.txt -r requirements/ui.txt -r requirements/dev.txt
 
       - name: Demo veritabanlarını üret
         run: |

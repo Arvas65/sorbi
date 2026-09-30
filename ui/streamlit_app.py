@@ -116,9 +116,12 @@ with tab_gecmis:
     st.subheader("Denetim izi (G-17)")
     kayitlar = audit.recent(100)
     if kayitlar:
-        st.dataframe(pd.DataFrame(kayitlar, columns=[
-            "zaman (UTC)", "kullanıcı", "soru", "durum", "satır", "mod", "süre (sn)"]),
-            width="stretch")
+        # Kolon adları `audit.KAYIT_KOLONLARI`'ndan gelir. Burada elle yazılmış
+        # yedi ad vardı; B7R-05 kayda sekizinci kolonu ekleyince bu sekme — ve
+        # Streamlit bütün sekmeleri her seferinde çizdiği için ANA SAYFANIN
+        # TAMAMI — ilk sorudan sonra çöküyordu (BULGU-46, 2026-08-29 → 09-30).
+        st.dataframe(pd.DataFrame(kayitlar, columns=list(audit.KAYIT_KOLONLARI)),
+                     width="stretch")
     else:
         st.caption("Henüz kayıt yok.")
 

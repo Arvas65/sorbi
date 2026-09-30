@@ -17,6 +17,15 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 | 42 | **Diskte düz metin kişisel veri.** Denetim izi (`.audit.db`) soruları, anlam modeli dosyası (`.sorbi/anlam/*.json`) sözlükteki gerçek değerleri şifresiz tutuyor. Hastane kurulumunda özel nitelikli veri; Kurul 2018/10 şifreli saklama ve ayrı anahtar ister | **DÜZELT** (karar 2026-09-30) | **(a)** disk şifreleme (BitLocker/LUKS) kurulum önkoşulu + kurulumda denetim; **(c′)** denetim izi yerelde TAM tutulur ("X'in verisine kim baktı" sorusu cevaplanabilmeli — sağlık erişim kaydının amacı), makineden çıkan her kopya (dışa aktarım, destek paketi, log gönderimi) anonimleştiriciden geçer. Asıl (c) — izi jetonlu tutmak — hesap verebilirliği bozduğu için uygulanmadı. G2 |
 | 44 | Gömme modeli (`paraphrase-multilingual-MiniLM`) ilk çalışmada HuggingFace'ten indiriliyor: tedarik zinciri riski ve kurum içi (internetsiz) kurulumda çalışmama | **açık** | GÜVENLİK K-14, G3: model dosyası sürüm + özetle sabitlenip pakete girer |
 
+| 47 | **Giriş formunda deneme sınırı yok** — parola denemesi sınırsız | **açık** | GÜVENLİK G2: hesap kilidi / artan bekleme + güvenlik olay kaydı (K-11) |
+| 48 | **İlk kurulum ekranı, ekrana ilk ulaşanı yönetici yapıyor.** Kurum içinde kabul edilebilir; internete açık kurulumda (Azure demo) yönetici hesabı ele geçirme | **açık — Azure öncesi BLOK** | İlk yönetici kurulumu komut satırından ya da tek kullanımlık kurulum anahtarıyla; arayüzden kaldırılır |
+
+## 2026-09-30 duman testinde kapananlar
+
+| # | Bulgu | Durum | Nasıl |
+|---|-------|-------|-------|
+| 46 | **Ana sayfa ilk sorudan sonra çöküyordu** (2026-08-29 → 09-30). B7R-05 denetim kaydına sekizinci kolonu ekledi, "Geçmiş" sekmesi yedi kolon adı veriyordu; Streamlit bütün sekmeleri çizdiği için sayfanın tamamı düştü. 693 testin hiçbiri arayüzü çalıştırmıyordu | **kapandı** | Kolon adları tek kaynaktan (`audit.KAYIT_KOLONLARI`); `tests/test_arayuz_duman.py` (Streamlit AppTest, 6 test — eski kodla asıl test düşüyor); CI arayüz bağımlılıklarını kurar |
+
 ## 2026-09-30 güvenlik turunda kapananlar
 
 | # | Bulgu | Durum | Nasıl |
@@ -38,4 +47,4 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 | 15 | `admin` salt+hash'i public depo geçmişinde (`884f8d9`) | **kapandı** | 2026-09-30: İhsan parolayı döndürdü; geçmişteki hash artık değersiz |
 | 41 | Docker imajı `docs/kanit`'i taşıyordu ("paket kanıt taşımaz" kuralı imaja uygulanmamıştı) | **kapandı** | `.dockerignore`: `docs/`, `*.bat`, `.claude/` |
 
-## Sıradaki numara: **46**
+## Sıradaki numara: **49**

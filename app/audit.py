@@ -62,6 +62,12 @@ def write(kullanici: str, soru: str, sql: str, durum: str, satir_sayisi: int = 0
     con.close()
 
 
+# `recent()`'in döndürdüğü kolonların GÖSTERİM adları, aynı sırada. Arayüz bu
+# listeyi kullanır; kolon eklenirse tek yerde eklenir (BULGU-46).
+KAYIT_KOLONLARI = ("zaman (UTC)", "kullanıcı", "soru", "durum", "satır", "mod",
+                   "süre (sn)", "güven bayrakları")
+
+
 def recent(limit: int = 50) -> list[tuple]:
     con = _baglan()
     rows = con.execute("SELECT zaman, kullanici, soru, durum, satir_sayisi, mod, sure_s, "
