@@ -156,6 +156,11 @@ def _cogaltan_yol_var_mi(model: AnlamModeli, a: str, b: str) -> bool:
 #  Parçalar
 # --------------------------------------------------------------------------- #
 
+# Satır tekrarında sonucu değişen toplamalar. BENZERSİZ_SAYIM, EN_AZ, EN_ÇOK
+# aynı satırı ikinci kez gördüğünde değişmez; bunlar çoğalmaya karşı bağışıktır.
+_TEKRARA_DUYARLI = frozenset({Toplama.SAYIM, Toplama.TOPLAM, Toplama.ORTALAMA})
+
+
 def _olcu_ifadesi(o: Olcu) -> str:
     """Toplama fonksiyonunu ifadenin ETRAFINA koyar.
 
@@ -267,9 +272,18 @@ def _derle(secim: Secim, model: AnlamModeli, lehce: str) -> DerlemeSonucu:
 
     # Taban seçimi: ölçü tablolarından, DİĞER her gerekli tabloya çoğaltmayan
     # yolu olan ilki. Ölçü hangi tablodaysa sorgunun tanesi odur.
+    #
+    # İKİNCİ KOŞUL (BULGU-50, 2026-09-30): tabanın çoğalmaması yetmez; tabandan
+    # FARKLI tabloda duran her ölçünün tablosu da tabana çoğalmadan inmelidir.
+    # Aksi hâlde o ölçünün satırları tabanın tanesinde tekrar eder ve SUM/COUNT
+    # şişer. Gerçek vaka: `islem_sayisi` (muayene_islem) + `ciro` (fatura) →
+    # taban muayene_islem; her fatura, muayenenin işlem satırı kadar sayıldı,
+    # ciro 2,3 kat çıktı. Sorgu çalıştı, tablo temizdi — sessiz yanlış.
+    # BENZERSİZ_SAYIM / EN_AZ / EN_ÇOK tekrardan etkilenmez, muaftır.
     taban = None
     yollar: dict[str, list[tuple[Iliski, bool]]] = {}
-    for aday in [o.tablo for o in olculer]:
+    cogalma: list[str] = []
+    for aday in dict.fromkeys(o.tablo for o in olculer):
         deneme = {}
         for hedef in gerekli:
             y = _yol(g, aday, hedef)
@@ -277,8 +291,20 @@ def _derle(secim: Secim, model: AnlamModeli, lehce: str) -> DerlemeSonucu:
                 break
             deneme[hedef] = y
         else:
+            cogalan = [o for o in olculer
+                       if o.toplama in _TEKRARA_DUYARLI and o.tablo != aday
+                       and _yol(g, o.tablo, aday) is None]
+            if cogalan:
+                cogalma = [
+                    f"'{o.ad}' ölçüsü '{o.tablo}' tanesinde; '{aday}' tanesinde toplanırsa "
+                    f"her '{o.tablo}' satırı birden çok kez sayılır ve sonuç ŞİŞER. "
+                    "Bu ölçüleri ayrı kartlar olarak isteyin." for o in cogalan]
+                continue
             taban, yollar = aday, deneme
             break
+
+    if taban is None and cogalma:
+        return DerlemeSonucu(gecersiz=tuple(cogalma))
 
     if taban is None:
         ilk = olculer[0].tablo

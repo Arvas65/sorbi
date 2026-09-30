@@ -31,6 +31,7 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 
 | # | Bulgu | Durum | Nasıl |
 |---|-------|-------|-------|
+| 50 | **v4 derleyicisi iki farklı olay tablosundan ölçüyü birlikte toplayınca sonucu şişiriyordu.** `islem_sayisi` (muayene_islem) + `ciro` (fatura) unvana göre: Doç. Dr. cirosu doğrusu 2.912.400 TL, derlenen 6.756.600 TL (2,3×). Taban seçimi yalnız TABANIN çoğalmadığını denetliyordu, diğer ölçü tablolarının çoğalmasını değil. SPEC R-3 bunu yasaklıyordu; 43 altın çift ve 787 test görmedi — hiçbiri iki taneden ölçü istemiyordu. Satışa hazırlık denetiminde gerçek DB'de sayıya bakılarak bulundu | **kapandı** (dal `duzelt-cogalma`) | Her tekrara duyarlı ölçünün tablosu tabana çoğalmadan inmeli; yoksa derlenmez ve gerekçe yazılır. BENZERSİZ_SAYIM/EN_AZ/EN_ÇOK muaf. `tests/cekirdek/test_derleyici_cogalma.py` sonucu elle yazılmış SQL ile gerçek DB'de karşılaştırır; eski kodla 7 bekçinin 4'ü düşer. Sonraki adım (SONRA): ret yerine drill-across — her ölçüyü kendi tanesinde toplayıp boyutta birleştirmek |
 | 43 | **v3 yolu mod kilidini atlıyordu.** `pipeline.ask` `config.MODE`'u doğrudan kullanıyordu; `SORBI_MODE=api` tanımlı makinede (İhsan'ınki) bir müşteri DB'sine bağlanmak soruyu, şema bağlamını ve onarımda hatalı SQL ile DB hata iletisini dış servise gönderiyordu | **kapandı** | Karar bağlantıya göre (`cikarim_modu`); tüm LLM çağrıları izin bağlamında; **çıkış kapısı** izinsiz çağrıyı ağa çıkmadan durdurur. `tests/test_cikis_kapisi.py` |
 | 45 | Bilinen açıklı bağımlılıklar: `urllib3` 2.7.0 (3 CVE, sıkıştırma bombası dahil), `oauthlib` 3.3.1 | **kapandı** | 2.8.0 ve 4.0.0'a yükseltildi, başka pin değişmedi. `chromadb` 1.5.9'un 4 açığı **KABUL**: hepsi HTTP sunucusuna ait, SorBI gömülü koşuyor — bekçi `tests/test_guvenlik_bagimlilik.py` |
 
@@ -48,4 +49,4 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 | 15 | `admin` salt+hash'i public depo geçmişinde (`884f8d9`) | **kapandı** | 2026-09-30: İhsan parolayı döndürdü; geçmişteki hash artık değersiz |
 | 41 | Docker imajı `docs/kanit`'i taşıyordu ("paket kanıt taşımaz" kuralı imaja uygulanmamıştı) | **kapandı** | `.dockerignore`: `docs/`, `*.bat`, `.claude/` |
 
-## Sıradaki numara: **50**
+## Sıradaki numara: **51**
