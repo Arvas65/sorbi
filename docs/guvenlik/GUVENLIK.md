@@ -1,7 +1,7 @@
 # SorBI — Güvenlik yönetimi
 
 **Sürüm:** 1.0 · **Tarih:** 2026-09-30 · **Sahibi:** İhsan Arvas · **Hazırlayan:** Claude (güvenlik yöneticisi rolü)
-**Kararlar:** ADR-5 (B, kabul) · ADR-10 (veri sınırı ve anonimleştirme, öneri)
+**Kararlar:** ADR-5 (B, kabul) · ADR-10 (veri sınırı ve anonimleştirme, kabul)
 
 Bu belge SorBI'nin güvenlik duruşunu tek yerde tutar: hangi Türk mevzuatı neyi
 istiyor, neyi tehdit olarak görüyoruz, hangi kontrol **kodda** hangisi **yalnız
@@ -65,7 +65,7 @@ API anahtarı ve parolalar (S4).
 | K-4 | Çıkış kapısı — varsayılan kapalı, tek çıkış noktası | ✔ kodda | `app/guvenlik/cikis_kapisi.py` ← `generator._api_chat` |
 | K-5 | Bağımlılık açığı taraması | ✔ CI | `ci.yml` `guvenlik` işi + bekçi testleri |
 | K-6 | Sır taraması | ✔ CI | gitleaks, çalışma ağacı |
-| K-7 | Diskte şifreleme (denetim izi, anlam modeli), anahtar ayrı | ✘ | BULGU-42 → G2 |
+| K-7 | Diskte şifreleme (denetim izi, anlam modeli), anahtar ayrı | ✘ | BULGU-42 → G2: disk şifreleme önkoşulu + dışarı çıkan kopyalar anonim |
 | K-8 | Uzaktan erişimde 2FA | ✘ | G2 |
 | K-9 | Sunucu tarafı salt-okunurluk + zaman aşımı | ✘ | İP-43 (İhsan) |
 | K-10 | Bölüm/birim bazlı yetki (satır düzeyi) | ✘ | Faz E |

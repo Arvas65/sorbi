@@ -94,7 +94,7 @@ Sıradaki iş uçtan uca ince dilim — `docs/PLAN.md` Faz B.
 - **ADR-3** Chroma RAG · **ADR-4** sqlglot ile lehçe taşınabilirliği
 - **ADR-5 KABUL — B** (2026-09-30): yerel varsayılan, API açıkça seçilir. `config.py`'ye ve teste kilitli
 - **ADR-8** anlam katmanı · **ADR-9** anlam modeli müşterinin makinesinde dosya
-- **ADR-10** veri sınırı ve anonimleştirme — **ÖNERİ**: sağlık/kamu verisi yabancı
+- **ADR-10 KABUL** (2026-09-30) veri sınırı ve anonimleştirme: sağlık/kamu verisi yabancı
   LLM'e hiçbir koşulda çıkmaz; diğer kişisel veri yalnız takma adlı
 - Lisans çift: çekirdek açık, kurumsal katman kapalı
 - FastAPI çekirdek + Streamlit istemci; tam yeniden yazım yok

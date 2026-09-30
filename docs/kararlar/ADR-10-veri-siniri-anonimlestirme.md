@@ -1,6 +1,6 @@
 # ADR-10 — Veri sınırı ve anonimleştirme: ne, nereye, hangi koşulda çıkar
 
-**Durum:** **ÖNERİ — İhsan'ın onayını bekliyor** (Plan kapısı). Hazırlayan: Claude (güvenlik yöneticisi rolü), 2026-09-30.
+**Durum:** **KABUL** (İhsan Arvas, 2026-09-30). Hazırlayan: Claude (güvenlik yöneticisi rolü).
 **İlgili:** ADR-5 (B), ADR-8, ADR-9 · CLAUDE.md § 3.3 · SPEC E-1, E-2, E-6 · `docs/guvenlik/GUVENLIK.md`
 
 ## 1. Soru
@@ -113,7 +113,7 @@ kapıyı kapatarak değil algılayıcıyı düzelterek giderilir; o düzeltme ke
 ## 7. Karar
 
 ```
-Seçilen:            (İhsan doldurur — öneri: yukarıdaki § 3)
-Karar veren:
-Tarih:
+Seçilen:            § 3 olduğu gibi
+Karar veren:        İhsan Arvas
+Tarih:              2026-09-30
 ```
