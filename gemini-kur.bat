@@ -65,7 +65,7 @@ if !SONUC! NEQ 0 (
     echo.
     echo  Yerel moda donmek icin:  gemini-kur.bat /kaldir
 ) else (
-    echo  HAZIR. Bu gece olcum Gemini ile kosacak.
+    echo  HAZIR. Uygulama ve olcum artik Gemini ile kosacak.
     echo.
     echo  Not: baglamdaki gercek kolon degerleri Google'a GITMEZ
     echo  ^(mask_context^). Yalnizca sema metaverisi gider.

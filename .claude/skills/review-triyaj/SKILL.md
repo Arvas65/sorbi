@@ -44,14 +44,15 @@ triyajı ona iki kez yaptırmaktır.
 
 ## Belgeler
 
-Bir İP bittiğinde `docs/is-hatti/v3/IP-XX/` altına dört dosya:
+Her İP tek dalda (`ip-XX-kisa-ad`) yürür ve **tek PR** ile biter. Ayrı belge
+dosyası açılmaz; PR açıklaması dört bölüm taşır:
 
-| Dosya | İçerik |
+| Bölüm | İçerik |
 |-------|--------|
-| `REVIEW.md` | Triyaj listesi (İhsan'ın kapısı) |
-| `TEST.md` | Ne koşuldu, hangi sayılar çıktı |
-| `VERIFY.md` | İddia → kanıt → kanıt nerede. Ve **doğrulanamayanlar.** |
-| `DEVIR.md` | İhsan dönünce okuyacağı tek belge |
+| **Review** | Triyaj listesi (İhsan'ın kapısı) |
+| **Test** | Ne koşuldu, hangi sayılar çıktı (CI bağlantısı dahil) |
+| **Verify** | İddia → kanıt → kanıt nerede. Ve **doğrulanamayanlar.** |
+| **Devir** | İhsan'ın okuyacağı üç satır; aynısı `docs/GUNLUK.md`'nin başına |
 
-`VERIFY.md` bir kabul kapısı listesiyle biter: Ship'ten önce yeşil olması
+Verify bölümü bir kabul listesiyle biter: Ship'ten (merge) önce yeşil olması
 gerekenler, kutulu.

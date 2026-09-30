@@ -14,3 +14,8 @@ eval/results.json
 *.safetensors
 .idea/
 .vscode/
+
+# Imaj kanit, belge ve Windows betigi tasimaz (kanit uretildigi makineye aittir).
+docs/
+*.bat
+.claude/

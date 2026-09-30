@@ -110,7 +110,7 @@ def acilis() -> None:
     """Yeni oturum nereden devraldığını bilsin diye son durumu basar."""
     parcalar = []
 
-    gunluk = os.path.join(KOK, "docs", "is-hatti", "GUNLUK.md")
+    gunluk = os.path.join(KOK, "docs", "GUNLUK.md")
     if os.path.exists(gunluk):
         with open(gunluk, encoding="utf-8") as f:
             satirlar = f.read().split("\n")
@@ -119,19 +119,6 @@ def acilis() -> None:
             son = next((i for i, s in enumerate(satirlar[bas + 1:], bas + 1)
                         if s.startswith("## ")), len(satirlar))
             parcalar.append("SON OTURUM:\n" + "\n".join(satirlar[bas:son]).strip())
-
-    gece = os.path.join(KOK, "docs", "kanit", "SON-GECE-KOSUMU.txt")
-    if os.path.exists(gece):
-        with open(gece, encoding="utf-8") as f:
-            satir = f.read().strip()
-        if satir:
-            parcalar.append("SON GECE KOŞUMU: " + satir)
-
-    push = os.path.join(KOK, "docs", "kanit", "PUSH-SORUNU.txt")
-    if os.path.exists(push):
-        with open(push, encoding="utf-8") as f:
-            parcalar.append("!! " + f.read().strip()
-                            + "  → kanıt dışarı çıkamıyor, çözüm: yedekle.bat")
 
     karne = os.path.join(KOK, "docs", "kanit", "KARNE-GECMIS.log")
     if os.path.exists(karne):

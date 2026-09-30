@@ -10,9 +10,9 @@ yok sayılmış bulgudur.
 
 ## Nereye
 
-- Küçük ve tanımlı → `docs/is-hatti/BACKLOG.md`, sıradaki İP numarasıyla
-- Kök sebebi ilginç ya da ders çıkaran → `docs/is-hatti/v3/IP-XX/BULGU.md`
-- Review kapısında karar gerekiyorsa → o İP'nin `REVIEW.md` tablosuna
+- Her bulgu → `docs/BULGULAR.md` tablosuna bir satır. **Numara yalnız orada verilir.**
+- Kök sebebi ilginç ya da ders çıkaran → aynı satırın açıklamasına ya da ilgili PR'a
+- Review kapısında karar gerekiyorsa → o İP'nin PR açıklamasındaki triyaj tablosuna
 
 ## Ne yazılır
 

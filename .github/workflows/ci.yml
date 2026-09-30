@@ -1,6 +1,6 @@
 name: CI
 
-# İş hattının Test adımının makine tarafı (docs/is-hatti/00-IS-HATTI.md § 7).
+# İş hattının Test adımının makine tarafı (CLAUDE.md § 2). Her PR bu kapıdan geçer.
 # Buradaki hiçbir adım gerçek bir LLM servisine ihtiyaç duymaz — CI, Ollama olmadan koşar.
 
 on:
@@ -99,17 +99,15 @@ jobs:
       - name: İmaj içinde demo veritabanları var mı
         run: docker run --rm sorbi:ci python -c "import os;assert os.path.exists('demo/hospital.db');print('demo DB tamam')"
 
-  # --- Regresyon kapısı burada DEĞİL, gece koşumunda ---
+  # --- Regresyon kapısı burada DEĞİL, istek üzerine ölçümde ---
   #
-  # SPEC A-4'ün kapısı `eval/evaluate.py` içinde uygulandı (İP-33): eşli
-  # McNemar kararı, REGRESYON çıkarsa **çıkış kodu 3**. Ama koşabilmesi için
-  # bir LLM gerekiyor ve CI'da LLM yok (bilerek: bkz. yukarıdaki "yalnız core
-  # + dev" notu). Bu yüzden kapı gece koşumunda, İhsan'ın makinesinde işler.
+  # 101 soruluk doğruluk ölçümü bir LLM ister; CI'da LLM yok (bilerek).
+  # Ölçüm, bir PR modeli, istemi ya da derleyiciyi değiştirdiğinde elle
+  # alınır: `kontrol.bat tam` (Windows) ya da `python eval/evaluate.py`.
+  # `evaluate.py` önceki koşumla eşli McNemar yapar; REGRESYON çıkarsa
+  # çıkış kodu 3'tür. Kural: `bozulan - düzelen >= 3` VE `p < 0,05`
+  # (ölçülen gürültü: API modunda sd 1,13 puan — ADR-5 § 3).
   #
-  # Eşik neden 3 puan DEĞİL: ölçülen gürültü tabanı koşumlar arası 7 ayrık
-  # soru (McNemar p = 1,000). Saf gürültüde |net| >= 3 soru çıkma olasılığı
-  # ~%45; kapı hiçbir şey olmadan neredeyse her iki koşumda bir ateşlerdi.
-  # Yeni kural: `bozulan - düzelen >= 3` VE `McNemar p < 0,05`.
-  #
-  # Burada koşan LLM'siz kapılar: ruff, testler, gold-only bütünlük,
-  # B-7 mutasyon karnesi.
+  # 2026-09-30: Windows gece ölçüm hattı emekliye ayrıldı. 17 gecenin
+  # yalnız 6'sı koşmuştu ve kendi onarımı kendi çalışmasına bağlıydı.
+  # Arşiv: `olcum-otomatik` dalı.

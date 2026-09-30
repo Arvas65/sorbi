@@ -12,7 +12,7 @@ import re
 from app import config
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ADR1 = os.path.join(KOK, "docs", "is-hatti", "v3", "ADR", "ADR-1-taban-model.md")
+ADR1 = os.path.join(KOK, "docs", "kararlar", "ADR-1-taban-model.md")
 
 
 def test_varsayilan_model_adr1_ile_ayni():

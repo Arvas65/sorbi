@@ -3,11 +3,23 @@
 Bu dosyanın biçimi [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esaslıdır ve
 sürümleme [Semantic Versioning](https://semver.org/lang/tr/) izler.
 
-Her sürüm, iş hattının Ship kapısından (`docs/is-hatti/00-IS-HATTI.md` § 9) geçerek çıkar.
+Her sürüm, iş hattının Ship kapısından (merge — `CLAUDE.md` § 2) geçerek çıkar.
 
 ---
 
 ## [Yayınlanmamış]
+
+### Toparlama — 2026-09-30
+- **master güncellendi:** 07-25'ten beri donmuştu; v3 kanıt turu ve v4 çekirdeği (26 commit) artık master'da.
+- **Kaldırıldı — Windows gece ölçüm hattı:** `gece-kosum.bat`, `otomatik.bat`, `yedekle.bat`, `kur.bat`,
+  `gece-gorev/`, `eval/kanit_it.py`, `eval/karne_gecmisi.py`, `eval/kosum_gecmisi.py`, `tools/izdusum_denetimi.py`
+  ve bunların 33 testi. 17 gecenin 6'sı koşmuştu. Arşiv: `olcum-otomatik` dalı.
+- **Belgeler:** `docs/` 21 bin satırdan özüne indi — `PLAN.md` (FDE), `BULGULAR.md`, `GUNLUK.md`,
+  `kararlar/` (ADR-1…5, 8, 9), `tasarim/` (v4 SPEC, MİMARİ). v3 iş hattı ve günlük log'lar arşiv dallarında.
+- **Yeni:** `guncelle.bat` (çek → kur → denetle); `kontrol.bat` CI'nın dört kapısına indi.
+- **Düzeltildi:** BULGU-35 — kota her koşumda rapora bir satırla girer (`_kota_satiri`, 6 test).
+- **Düzeltildi:** BULGU-41 — Docker imajı `docs/kanit`'i taşıyordu.
+- **ADR-5** depodaki 08-23 kopyası güncel taslakla değişti (karar hâlâ boş — Ship kapısı).
 
 ### Eklendi
 - `pyproject.toml`: proje metaverisi, ruff yapılandırması, pytest ve kapsam ayarları

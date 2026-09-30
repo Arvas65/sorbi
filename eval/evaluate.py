@@ -718,6 +718,35 @@ def _kota_uyarisi(ozet: dict) -> str:
             "> aşımı giderilip tekrarlanmalıdır.\n")
 
 
+def _kota_satiri(ozet: dict) -> str:
+    """Kota **her koşumda** raporda bir satırla anılır — aşım olmasa da.
+
+    Neden (BULGU-35, 2026-09-05/06). `_kota_uyarisi` yalnız aşım varsa
+    konuşuyordu; sıfırda boş dize dönüyordu. Üç ayrı durum böylece aynı
+    çıktıyı veriyordu: **ölçüldü ve sıfır**, **alan hiç yok** (İP-31 öncesi
+    şema), **alan `None`**. Sonuç: `.md` raporda "kota" sözcüğü hiç geçmiyor
+    ve okuyucu sıfırı SESSİZLİKTEN çıkarmak zorunda kalıyor. 09-05 ve 09-06
+    nöbetleri bu sayıyı raporda arayıp bulamadı; hükmü ham JSON'a dayandırmak
+    zorunda kaldılar.
+
+    Aynı ders bu dosyada otuz satır ötede zaten öğrenilmişti — `_mod_satiri`
+    bir iddiayı sayıya bağlamak için yazıldı. Kota için koda inmemişti.
+
+    `_kota_uyarisi` DEĞİŞTİRİLMEDİ: o bir alarmdır ve yalnız aşımda konuşur.
+    Bu satır alarm değil, **kayıt**tır; ikisi ayrı işlerdir.
+    """
+    if "kota_asildi" not in ozet or ozet.get("kota_asildi") is None:
+        return ("`KOTA kota_asildi=olculmedi` — bu koşum kota aşımını hiç "
+                "ölçmemiş (eski şema). Sıfır olduğu **varsayılamaz**.")
+    k = int(ozet["kota_asildi"])
+    olculebilen = ozet.get("olculebilen", ozet.get("n"))
+    if k == 0:
+        return (f"`KOTA kota_asildi=0 olculebilen={olculebilen}` — kota/hız "
+                "sınırına takılan soru yok; manşet yüzde bütün soruları ölçüyor.")
+    return (f"`KOTA kota_asildi={k} olculebilen={olculebilen}` — ayrıntı için "
+            "yukarıdaki uyarıya bakın.")
+
+
 def _mod_satiri(ozet: dict, damga: dict) -> str:
     """Damga tek bir model adı yazar; koşumun tamamı o modelle mi koştu?
 
@@ -902,6 +931,7 @@ def rapor_yaz(ozet: dict, damga: dict, klasor: str, onceki: dict | None = None,
 
 ## **{100 * ozet['accuracy']:.1f}%**  ({ozet['dogru']}/{ozet['n']})
 {_kota_uyarisi(ozet)}
+{_kota_satiri(ozet)}
 
 **Hedef ({100 * HEDEF_ACCURACY:.0f}%) {'KARŞILANDI' if basari else 'KARŞILANMADI'}.**
 {'' if basari else chr(10) + '> ADR-2 koşulu tetiklendi: RAG-only baseline hedefin altında. QLoRA fine-tune ' + chr(10) + '> kararı yeniden açılmalı ve yeni bir iş paketi olarak planlanmalıdır.' + chr(10)}

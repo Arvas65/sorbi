@@ -26,7 +26,7 @@ YASAK_YOLLAR = (
 )
 
 # `CLAUDE.md` içinde anılan her ADR'nin dosyası olmalı.
-ADR_DIZIN = os.path.join(KOK, "docs", "is-hatti", "v3", "ADR")
+ADR_DIZIN = os.path.join(KOK, "docs", "kararlar")
 
 
 def _takip_edilenler() -> list[str] | None:

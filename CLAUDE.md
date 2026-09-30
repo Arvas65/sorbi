@@ -1,179 +1,139 @@
 # SorBI — çalışma belleği
 
-Bu dosya her oturumda ilk okunan şeydir. Amacı: yeni bir oturum açıldığında
-projenin nerede olduğunu, hangi kararların verildiğini ve **hangi hataların
-zaten yapıldığını** tekrar keşfetmek zorunda kalmamak.
-
-Kısa tut. Bir şey burada yazmıyorsa `docs/is-hatti/` altına bak.
+Her oturumda ilk okunan dosya. Amacı: yeni bir oturum projenin nerede
+olduğunu, hangi kararların verildiğini ve **hangi hataların zaten yapıldığını**
+yeniden keşfetmek zorunda kalmasın. Kısa tutulur; ayrıntı `docs/`'ta.
 
 ---
 
 ## 1. Bu ne
 
-Türkçe doğal dilden SQL üreten BI asistanı. Kullanıcı Türkçe soru sorar,
-sistem SQL üretir, çalıştırır, sonucu ve **ürettiği SQL'i** gösterir.
+Türkçe doğal dilden **pano** üreten BI motoru. Müşterinin veritabanına
+salt-okunur bağlanır, şemayı tarar, bir **anlam modeli** önerir (hangi tablo
+olay, hangi kolon tarih, hangi satır geçersiz); insan onaylar. Soru bu modele
+göre derlenir. Serbest LLM SQL'i yerine **deterministik derleyici**.
 
-Depo: `github.com/Arvas65/sorbi` · Yerel: `C:\Users\Arvas\SorBı`
-Sahibi: İhsan Arvas. Hedef: ticari seviye.
+Depo: `github.com/Arvas65/sorbi` · Yerel: `C:\Users\Arvas\SorBı` · Sahibi: İhsan Arvas
 
-## 2. Çalışma düzeni — üç kapı
+Proje **FDE (Forward Deployed Engineer) yöntemiyle** yürür: her faz bir
+müşteriye teslim edilebilir bir dilimdir. Plan: `docs/PLAN.md`.
 
-`Intent → Clarify → Spec → Plan → Build → Review → Test → Verify → Ship`
+## 2. Çalışma düzeni
 
-Bu üçü **İhsan'ındır, asla atlanmaz:**
+```
+Plan onayı → dal (ip-XX-ad) → Build → bağımsız Review → PR → [triyaj] → CI yeşil → [merge = Ship]
+```
 
-| Kapı | Ne demek |
-|------|----------|
-| **Plan** | Onayı alınmadan yeni iş paketi başlamaz |
-| **Review** | Bulguları o triyaj eder |
-| **Ship** | Yayına çıkma kararı onun |
+**Üç kapı İhsan'ındır:** Plan onayı · PR triyajı · merge (Ship).
+Gerisi onay beklemeden yürür. Triyaj sözlüğü: **BLOK · DÜZELT · SONRA · KABUL**
+(KABUL gerekçesiz verilmez).
 
-Bunların dışındaki her şey (build, test, ölçüm, refactor, belge) onay
-beklemeden yürür. İhsan yoksa iş durmaz; dönüşünde tek bir özet bulur.
-
-Triyaj sözlüğü: **BLOK · DÜZELT · SONRA · KABUL**
-KABUL yazılı gerekçe olmadan verilmez.
+- **Teslimat PR'dır.** Yama dosyası, tar paketi, proje belgesine gömülü diff yok.
+- **master her zaman yeşil ve güncel.** Bir iş dalda iki haftadan uzun beklemez.
+- **İhsan'dan terminal komutu istenmez.** Ondan istenen yalnız üç kapı. Yerelde
+  güncellemek için `guncelle.bat`'a çift tıklar.
+- Her PR açıklaması dört bölüm taşır: Review · Test · Verify · Devir
+  (`.claude/skills/review-triyaj`). Devir'in üç satırı `docs/GUNLUK.md`'nin başına.
+- Bulgu numarası **yalnız** `docs/BULGULAR.md`'de verilir.
 
 ## 3. Değişmezler
 
-Bunlar tartışmaya açık değil; birini bozan bir değişiklik geri alınır.
+Birini bozan değişiklik geri alınır.
 
-1. **Yalnız SELECT çalışır.** (G-18) Doğrulama katmanı istisna fırlatmaz,
-   kapalı devre başarısız olur.
-2. **Üretilen SQL her zaman gösterilir.** (G-02) Hata durumunda bile.
+1. **Yalnız SELECT çalışır.** Doğrulama katmanı istisna fırlatmaz, kapalı devre başarısız olur.
+2. **Üretilen SQL her zaman gösterilir.** Hata durumunda bile.
 3. **Yerel mod varsayılandır**, veri makineden çıkmaz. API modunda dış servise
-   yalnız ŞEMA METAVERİSİ gider (tablo/kolon adları, ilişkiler, JOIN yolları);
-   gerçek kolon değerleri `generator.mask_context()` ile **koşulsuz** düşürülür.
-   Bu bir ayara bağlı değildir ve bağlanamaz (G-13/G-16, bulgu 2026-08-22).
+   yalnız şema metaverisi gider; gerçek değerler `generator.mask_context()` ile
+   **koşulsuz** düşürülür. Bu bir ayara bağlanamaz.
 4. **Ölçülmemiş şey iddia edilmez.** Rapor yalnız çalıştırılmış sayıyı yazar.
-5. **Kanıt dosyalarının üzerine yazılmaz.** Her koşum damgalı ve benzersiz.
-6. **Hiçbir hata sessizce yutulmaz.** `except: pass` yasaktır — kendi
-   ürünümüzde kovaladığımız sessiz yanlışın kod hâli budur.
+5. **Kanıt dosyasının üzerine yazılmaz.** Her koşum damgalı ve benzersiz.
+6. **Hiçbir hata sessizce yutulmaz.** `except: pass` yasak.
+7. **Sır depoya girmez.** `.sorbi/`, `.env`, anahtar, hash — hiçbiri. Sızarsa
+   takipten çıkarmak yetmez: **döndürülür.**
 
 ## 4. Nerede ne var
 
 | Yol | Ne |
 |-----|-----|
-| `app/guven.py` | B-7 sessiz yanlış kontrolleri (9 kontrol, LLM'siz) |
-| `app/validator.py` | Güvenlik kapısı — asla fırlatmaz, kapalı devre |
-| `app/schema_rag.py` | Şema keşfi, JOIN yolları, değer örnekleme |
-| `eval/evaluate.py` | 101 soruluk ölçüm koşucusu |
-| `eval/guven_olcum.py` | Güven kontrolünün mutasyon karnesi (LLM'siz) |
-| `eval/tarih_sabitle.py` | Ölçüm referans günü (İP-23) |
-| `gece-gorev/` | Tek seferlik gece görevleri — bir kez koşar, `bitti/`ye taşınır |
-| `kontrol.bat` | İhsan'ın tek komutla koşturduğu denetim |
-| `docs/is-hatti/` | İş hattı, SPEC, PLAN, BACKLOG, ADR'ler, İP kayıtları |
-| `docs/kanit/` | Ölçüm çıktıları — **ekle-only, silinmez** |
+| `app/cekirdek/` | **v4 saf çekirdek** — anlam modeli, seçim, derleyici, pano, portlar (LLM'siz, DB'siz) |
+| `app/baglanti/` | Çekirdeğin kenarları — anlam deposu (diğer portlar henüz yok, bkz. PLAN) |
+| `app/guven.py` | B-7 sessiz yanlış kontrolleri (v3 yolu) |
+| `app/validator.py` | Güvenlik kapısı — asla fırlatmaz |
+| `app/executor.py` | v3 yürütücü — **İP-43 ile değişecek** |
+| `ui/` | Streamlit — bugün **yalnız v3 serbest SQL yolunu** gösteriyor |
+| `eval/evaluate.py` | 101 soruluk ölçüm · `eval/guven_olcum.py` mutasyon karnesi |
+| `tests/cekirdek/altin/` | Derleyici altın çiftleri (43) |
+| `docs/PLAN.md` · `docs/BULGULAR.md` · `docs/GUNLUK.md` | Plan, bulgular, oturum günlüğü |
+| `docs/kararlar/` | ADR'ler · `docs/tasarim/` v4 SPEC, MİMARİ |
+| `docs/kanit/` | Ölçüm tablosu, karne geçmişi, iki taban koşum |
 
-## 5. Şu anki durum
+Arşiv (hiçbiri silinmedi): `olcum-otomatik` dalı gece hattını ve tüm kanıtı,
+`ip-01-02-altyapi` dalı v3 iş hattı belgelerini taşır.
 
-**Ölçülen:** doğruluk %62,4 (63/101, GA %52,9–71,8) · p95 21,2 sn
-**Hedefler:** G-11 ≥%80, G-12 ≤10 sn — **ikisi de karşılanmadı**
+## 5. Durum
 
-**Asıl sorun:** yanlış cevapların %95'i *sessiz* — temiz bir tablo dönüyor,
-sayı yanlış. Doğruluk arttıkça bu oran da artıyor (güçlü model sözdizim değil
-anlam hatası yapar). Güvenilirlik doğruluk artırılarak çözülmez.
+**Ölçülen (v3 yolu, 101 soru):** API modu %69–72 (altı koşum) · yerel %56–62 ·
+G-11 hedefi %80 **hiçbir modda karşılanmadı**. Yanlışların %95–100'ü *sessiz*.
+Bu, v4'ün varlık sebebidir: serbest SQL'in doğruluğu artırılarak güvenilirlik
+gelmiyor; anlam modeli + derleyici ile yanlış ya **tutarlı ve denetlenebilir**
+olur ya da hiç derlenmez.
 
-**Buna karşı:** B-7 güven kontrolleri. **İki ayrı karne var, karıştırma:**
+**v4:** çekirdek yazıldı ve testli; **ürüne bağlı değil** (BULGU-39).
+Sıradaki iş uçtan uca ince dilim — `docs/PLAN.md` Faz B.
 
-| Karne | Sayı | Ne demek |
-|-------|------|----------|
-| Mutasyon (bizim ürettiğimiz hatalar) | **%80,1** (245/306) | regresyon nöbetçisi |
-| Gerçek model hataları (saha) | **%20** (6/30, GA %9,5–37,3) | sahada beklenen |
-
-Aralıklar kesişmiyor; bu bir dalgalanma değil (BULGU-04, iki gecede %17 → %20).
-Mutasyon karnesi bir **regresyon nöbetçisidir, saha tahmincisi değildir.**
-Havuz 2026-08-23'te gerçek hata ailelerini de kapsayacak şekilde genişletildi
-(239 → 306 mutant) ve sayı %83,3'ten düştü — düşüş bir gerileme değil, eski
-sayının bir kısmının havuzun kolaylığından geldiğinin ölçülmesi.
-
-Sahadaki bayraklar artık denetim izine yazılıyor (`audit.guven_karnesi()`),
-yani saha karnesi bir daha tahmin edilmeyecek, sayılacak.
-
-**Bekleyen:** Ship kapısı — ADR-5 (İP-32), karar bölümü boş.
+**Bekleyen kapılar:** ADR-5 § 6 (Ship) · BULGU-18, BULGU-27 (Review).
 
 ## 6. Alınmış kararlar
 
-- **ADR-1 rev.2** taban model `qwen2.5-coder:7b-instruct`. Ölçümle seçildi
-  (McNemar p=2,8e-4), tahminle değil.
-- **ADR-2 rev.2** QLoRA tetiklendi ama **ertelendi** — fine-tune yanlış cevap
-  sayısını azaltır, görünmezliğini azaltmaz.
+- **ADR-1 rev.2** taban model `qwen2.5-coder:7b-instruct` (McNemar p=2,8e-4)
+- **ADR-2 rev.2** QLoRA ertelendi — yanlışın sayısını azaltır, görünmezliğini değil
 - **ADR-3** Chroma RAG · **ADR-4** sqlglot ile lehçe taşınabilirliği
-- **ADR-5** çıkarım nerede koşacak (yerel / API) — **TASLAK, karar verilmedi.**
-  Ship kapısıdır: API modunu kalıcı yapmak ADR-1'in "veri dışarı çıkmaz"
-  reddini geri almak demektir.
-- Lisans: çift — çekirdek açık, kurumsal katman kapalı
-- Mimari: FastAPI çekirdek + Streamlit istemci, tam yeniden yazım yok
-- Roller: güvenlik-kritik modülleri İhsan yazar, altyapıyı Claude
+- **ADR-5** çıkarım yerel mi API mi — **TASLAK**, Ship kapısı. Öneri B (çift mod)
+- **ADR-8** anlam katmanı · **ADR-9** anlam modeli müşterinin makinesinde dosya
+- Lisans çift: çekirdek açık, kurumsal katman kapalı
+- FastAPI çekirdek + Streamlit istemci; tam yeniden yazım yok
+- Roller: güvenlik-kritik modülleri (yürütücü, kanarya) İhsan yazar
+- **2026-09-30** toparlama: gece hattı emekli, teslimat PR, FDE planı, müşteri
+  sırası önce kurgusal dış müşteri → sonra (izinle) hastane pilotu
 
 ## 7. Bu projede zaten yapılmış hatalar
 
-Tekrarlanmasın diye duruyorlar. Hepsi gerçekten oldu.
+Ortak payda: **bir yerde geçerli olanın başka yerde de geçerli olduğunu
+varsaymak.** Çare hep aynı — varsayımı çalıştırılabilir bir kontrole çevir.
 
 | Hata | Ders |
 |------|------|
-| Tek koşumu sinyal sanmak | Tek koşum gürültüdür |
-| Binom SE ile eşli tasarımı test etmek | Aynı soru setinde **McNemar** |
-| Kanıt dosyalarının üzerine yazmak | Damgalı benzersiz ad + ekle-only günlük |
-| Kendi doğrulama katmanımızın accuracy'yi bastırdığını görmemek | Reddedilen sorguları **oku** |
-| GPU'nun kullanılmadığını fark etmemek (2 saat) | `--doctor` her ölçümden önce |
-| `except Exception: pass` yazmak | Kendi yasakladığımız kalıp |
-| Referans günü sabit kodlamak | Sabit, yazıldığı makinenin verisine aittir |
-| ADR'yi yazıp koda indirmemek | Karar `config.py`'de değilse karar değildir |
-| Beklenen değeri betiğe gömmek | Sabit, yazıldığı ana ve makineye aittir. Ölçüleni **kendi geçmişiyle** karşılaştır |
-| Kuralı skill'e yazıp koda yazmamak | `karsilastirilamaz()` belgelenen beş koşuldan ikisini denetliyordu |
-| Gizlilik vaadini docstring'e yazmak | `generate_api` "veri değeri asla gitmez" diyordu; bunu sağlayan tek şey bir ayarın hatırlanmasıydı |
-| Bağlı klasörde bulut oturumundan git yazmak | Montajda `rm` yasak; git kilidini **silemiyor**. Kalan `index.lock` gece koşumunu 5 gün sessizce durdurdu. Okuma için `--no-optional-locks`, yazdıysan kalıntıyı temizle |
-| Tek seferlik betiği kök dizinde bırakmak | Bir gün yeniden koşulur. `it.bat` sabit dal adıyla yanlış dala itecekti (BULGU-20). Tek seferlik iş `gece-gorev/`e yazılır, bitince `bitti/`ye taşınır |
-| Testin ürettiği çöp dosyayı `.gitignore`'a eklemek | Görünmezlik düzeltme değildir. `yok-boyle-bir-dosya-yok.db` testin kendi yan etkisiydi; ignore'lanınca test ilk koşumda "dosya yok", sonrakilerde "boş veritabanı" ölçer oldu |
-| Denetimin kapsamını tek dizine sabitlemek | `os.listdir` ile yazılan süit nöbetçisi, sonradan açılan `tests/cekirdek/`'i hiç görmedi; "0 atlama" diye söz verirken altında altı atlama vardı. Kapsam da bir varsayımdır, o da kilitlenir |
-| Otomatik bir betiğin HEAD'i itmesi | HEAD'in "doğru dal" olduğu bir varsayımdır ve yeni bir dal açıldığı gün düşer. Push reddedilmez — hızlı-ileri sarma **başarılı** olur ve yanlış şeyi taşır (BULGU-24). Doğru soru "doğru dalda mıyım" değil, "bu iş dala bakmadan yapılabilir mi" |
-| Bir cetvel kusurunu düzeltip aynısını başka yerde aramamak | İP-23 ölçüm cetvelini takvimden kurtardı; altın çiftler bir hafta sonra aynı hatayla doğdu (BULGU-25). Onarım yamadır; kural değilse tekrar eder |
-| Bulgu numarasını yazarken vermek | İki dal aynı gün BULGU-21'i iki farklı şeye verdi. Numara `docs/is-hatti/BULGULAR.md`'de verilir, başka hiçbir yerde |
-| Bir kirlenme kapısını kapatıp aynı dosyaya açılan öteki kapıları saymamak | İP-33 karne günlüğünü *küçük* koşumlardan korudu, *yabancı* koşumlardan korumadı (BULGU-27). Ekle-only günlüğe yazma hakkı koşumun boyutuna değil **kime ait olduğuna** bakmalı |
-
-Ortak paydaları: **bir yerde geçerli olanın başka yerde de geçerli olduğunu
-varsaymak.** Çare hep aynı — varsayımı çalıştırılabilir bir kontrole çevir.
+| Tek koşumu sinyal sanmak | Tek koşum gürültüdür; aynı soru setinde **McNemar** |
+| Kanıtın üzerine yazmak | Damgalı benzersiz ad + ekle-only günlük |
+| Doğrulama katmanının doğruluğu bastırdığını görmemek | Reddedilen sorguları **oku** |
+| GPU'nun kullanılmadığını fark etmemek | `--doctor` her ölçümden önce |
+| ADR'yi yazıp koda indirmemek | Karar `config.py`'de ve bir testte değilse karar değildir |
+| Gizlilik vaadini docstring'e yazmak | Vaat bir testle sabitlenir, ayarla değil |
+| Beklenen değeri betiğe gömmek / referans günü sabitlemek | Sabit, yazıldığı makineye aittir; ölçüleni **kendi geçmişiyle** karşılaştır |
+| Otomatik betiğin HEAD'i itmesi | Push reddedilmez, yanlış şeyi **başarıyla** taşır (BULGU-24) |
+| Testin çöpünü `.gitignore`'a eklemek | Görünmezlik düzeltme değildir |
+| Denetimin kapsamını tek dizine sabitlemek | Kapsam da bir varsayımdır, o da kilitlenir |
+| Bulgu numarasını yazarken vermek | Numara tek yerde verilir |
+| **Ölçüm hattını ürünün önüne koymak** | 2026-08-22 → 09-07 arası emek ölçüm hattının kendisine gitti; ürün 09-03'ten sonra ilerlemedi. **Ölçüm ürüne hizmet eder, yerine geçmez** |
+| **Onarımı onardığı şeyin çalışmasına bağlamak** | Gece hattının dört onarım yolu da hattın koşmasını gerektiriyordu (BULGU-38) |
+| **İşi dalda biriktirmek** | master iki ay geride kaldı; 26 commit hiç birleşmedi. İş PR ile biter |
+| **Çekirdeği ürüne bağlamadan büyütmek** | 2.000 satır testli çekirdek, kullanıcının göremediği yerde (BULGU-39). Önce ince uçtan uca dilim |
 
 ## 8. Komutlar
 
 ```
-kur.bat                     paketi kur (yedek alır, kanıtı korur, otomatiği kurar)
-kontrol.bat                 hızlı denetim (LLM'siz, ~1-2 dk)
-kontrol.bat tam             + 101 soruluk ölçüm (Ollama, ~25-40 dk)
-kontrol.bat tam /sessiz     aynısı, hiç tuşa basmadan (zamanlanmış koşum)
-gemini-kur.bat              API modu: anahtarı sorar, kurar, gerçekten dener
-gemini-kur.bat /kaldir      yerel moda dön
-otomatik.bat /durum         gece koşumu ne zaman, ne oldu
-otomatik.bat /simdi         gece koşumunu hemen bir kez çalıştır
+guncelle.bat                master'ı çek, kur, denetle (Windows, çift tık)
+kontrol.bat                 hızlı denetim (LLM'siz, ~1 dk) — CI'nın aynısı
+kontrol.bat tam             + 101 soruluk ölçüm
+gemini-kur.bat              API modu anahtarı · /kaldir ile yerele dön
+parola.bat                  kullanıcı parolası değiştir
 
 python -m ruff check .
-python -m pytest tests\ --cov=app --cov=eval
-python eval\evaluate.py --doctor        ortam + GPU
-python eval\evaluate.py --gold-only     LLM'siz bütünlük
-python eval\guven_olcum.py              güven karnesi
+python -m pytest tests/
+python eval/evaluate.py --doctor | --gold-only
+python eval/guven_olcum.py
 ```
 
-## 9. İhsan komut yazmaz
+## 9. Oturum sonunda
 
-Kural (2026-08-21): İhsan'dan komut yazmasını isteme. Ölçüm her gece 03:00'te
-`gece-kosum.bat` ile kendiliğinden koşar ve sonucu `olcum-otomatik` dalına
-iter; bulut nöbeti sabah o dalı okur.
-
-Ondan bir şey istemek gerekiyorsa yalnızca üç kapıdan biri için iste:
-**Plan onayı, Review triyajı, Ship kararı.** Başka bir şey için isteme —
-çözümünü bul.
-
-## 10. Paketleme kuralı
-
-Paket **asla** `docs/kanit/` içeriği taşımaz (`.gitkeep` hariç). Kanıt, üretildiği
-makineye aittir; paketle taşınırsa hedef makinenin kendi ölçüm geçmişini ezer.
-Bir kez yapıldı: paket, paketleyenin `KARNE-GECMIS.log` dosyasını taşıyordu.
-
-`kur.bat` buna ek olarak paketin içeriğine **güvenmez** — ne gelirse gelsin
-`docs/kanit`'i açılan kopyadan temizler. Bu bilinçli bir çift koruma.
-
-## 11. Oturum sonunda
-
-Her oturum `docs/is-hatti/GUNLUK.md` dosyasının başına bir giriş ekler:
-ne yapıldı, ne ölçüldü, ne açık kaldı. Bir sonraki oturum oradan devralır.
+`docs/GUNLUK.md`'nin başına üç satırlık giriş: ne yapıldı, ne ölçüldü, ne açık.
