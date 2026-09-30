@@ -56,6 +56,18 @@ TARGET_DIALECT = os.getenv("SORBI_DIALECT", "sqlite")   # sqlite | postgres | ts
 QUERY_TIMEOUT_S = int(os.getenv("SORBI_TIMEOUT", "30"))
 MAX_ROWS = int(os.getenv("SORBI_MAX_ROWS", "1000"))
 
+# --- Anlam katmanı (ADR-8/9, İP-45) ---
+# Açıkken sorular anlam modeli + derleyiciden geçer (v4); kapalıyken v3 serbest
+# SQL yolu. v4 yolu Faz B'de ürüne bağlanana kadar varsayılan KAPALI; geri alma
+# yolu da budur (SPEC B-4): SORBI_ANLAM_KATMANI=0.
+ANLAM_KATMANI = os.getenv("SORBI_ANLAM_KATMANI", "0").strip().lower() in ("1", "true", "evet")
+# ADR-9: anlam modeli müşterinin makinesinde, bağlantı başına bir JSON dosyası.
+ANLAM_DIZINI = os.getenv("SORBI_ANLAM_DIZINI", os.path.join(HERE, ".sorbi", "anlam"))
+# ADR-5 B / SPEC E-6: API modu yalnız SENTETİK demo veritabanlarında açılabilir.
+# Bir dosyanın bu dizinin altında olması onu demo yapar; başka hiçbir şey yapmaz
+# (bağlantı adı, arayüzdeki bir kutucuk ya da bir ortam değişkeni DEĞİL).
+DEMO_DIZINI = os.path.join(HERE, "demo")
+
 # --- RAG (ADR-3) ---
 CHROMA_DIR = os.getenv("SORBI_CHROMA_DIR", os.path.join(HERE, ".chroma"))
 EMBED_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
