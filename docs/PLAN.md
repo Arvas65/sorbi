@@ -60,7 +60,7 @@ değil; darboğaz İhsan'ın kalemleri ve kapıları.
 - Gece ölçüm hattı emekli, belge yığını arşivde; `docs/` = plan + kararlar + tasarım + kanıt özü
 - `46-yama` (BULGU-35) uygulandı; ADR'ler `docs/kararlar/`'da, ADR-5 güncel taslak
 - **İhsan'ın bu hafta yapacağı üç şey** (her biri ≤15 dk):
-  1. **`parola.bat` ile admin parolasını döndür** (BULGU-15) — bugün
+  1. ~~`parola.bat` ile admin parolasını döndür~~ (BULGU-15) — ✔ 2026-09-30
   2. **Bu PR'ı merge et** (Ship)
   3. ADR-5 § 6'yı doldur (öneri B), BULGU-18 ve BULGU-27'yi triyajla
 

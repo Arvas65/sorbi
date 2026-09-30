@@ -10,7 +10,6 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 
 | # | Bulgu | Durum | Not |
 |---|-------|-------|-----|
-| 15 | `admin` salt+hash'i public depo geçmişinde (`884f8d9`, `.sorbi/users.json`) | **açık — İhsan** | 08-23'te "kapandı" yazılmıştı; kapanan yalnız *yeni* sızıntıydı. Parola **döndürülmedikçe** açık: `parola.bat`. Geçmişi yeniden yazmak indirilmiş kopyaları geri almaz |
 | 18 | Cetvel fazla kolon döndüren doğru cevabı yanlış sayıyor | **Review** | Cetvel politikası (SPEC B-2); v4'te eşleme cetveli (İP-56) doğarken karar gerekir |
 | 27 | Başka makinenin karne koşumu `KARNE-GECMIS.log`'a yazabiliyor | **Review** | Öneri Ö-a: satıra `makine=` damgası, kıyas aynı damgalı son kayıtla. Gece hattı gitti ama CI ve bulut oturumları hâlâ karne koşuyor |
 | 36 | `karsilastirilamaz()` kaydedilen değeri denetliyor, **uygulanmışlığını** değil — API'de `seed=42` damgada var, uç nokta reddediyor; kapı `mod`'a hiç bakmıyor | **açık** | Yerel ile API koşumu yanlışlıkla eşli karşılaştırılabilir. `eval/evaluate.py` |
@@ -27,6 +26,7 @@ Durum: **açık** · **Review** (İhsan'ın triyajı bekliyor) · **kapandı** �
 | 35 | Kota sıfırken rapora hiç girmiyor | **kapandı** | `46-yama` uygulandı: `_kota_satiri`, `tests/test_kota_kaydi.py` (6 test) |
 | 37 | Gece koşumu `kontrol.bat` hükümlerini log'a yazmıyor | emekli | Gece hattı kaldırıldı |
 | 38 | Hattın onarım yolu, onarılmasını gerektiren şeye bağlı | emekli | Hat kaldırıldı; ders CLAUDE.md § 7'de |
+| 15 | `admin` salt+hash'i public depo geçmişinde (`884f8d9`) | **kapandı** | 2026-09-30: İhsan parolayı döndürdü; geçmişteki hash artık değersiz |
 | 41 | Docker imajı `docs/kanit`'i taşıyordu ("paket kanıt taşımaz" kuralı imaja uygulanmamıştı) | **kapandı** | `.dockerignore`: `docs/`, `*.bat`, `.claude/` |
 
 ## Sıradaki numara: **42**
